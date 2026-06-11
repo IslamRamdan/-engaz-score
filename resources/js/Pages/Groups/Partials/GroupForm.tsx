@@ -1,101 +1,95 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, FormEvent } from "react";
 import { useForm } from "@inertiajs/react";
 
-export default function GroupForm({ isOpen, onClose, group, visas }) {
-    const [jobs, setJobs] = useState([]);
-    const [jobSearch, setJobSearch] = useState("");
-    const [jobDropdownOpen, setJobDropdownOpen] = useState(false);
-    const [selectedJobText, setSelectedJobText] = useState("");
-    const dropdownRef = useRef(null);
+interface Job {
+    Value: string | number;
+    Text: string;
+}
 
-    const { data, setData, post, put, processing, errors, reset, clearErrors } =
+interface Visa {
+    id: number;
+    name: string;
+}
+
+interface GroupFormProps {
+    isOpen: boolean;
+    onClose: () => void;
+    group: any;
+    visas: Visa[];
+    jobs: Job[];
+}
+
+export default function GroupForm({
+    isOpen,
+    onClose,
+    group,
+    visas,
+    jobs = [],
+}: GroupFormProps) {
+    const [jobSearch, setJobSearch] = useState<string>("");
+    const [jobDropdownOpen, setJobDropdownOpen] = useState<boolean>(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
+
+    // نستخدم القيم الافتراضية للفورم
+    const { data, setData, post, put, processing, reset, clearErrors } =
         useForm({
-            name: group?.name || "",
-            visa_id: group?.visa_id || "",
-            notes: group?.notes || "",
+            name: "",
+            visa_id: "",
+            notes: "",
         });
 
-    // تحميل المهن
+    // تحديث البيانات عند فتح المودال أو تغير الـ group
     useEffect(() => {
-        fetch("/jops.json")
-            .then((res) => res.json())
-            .then((data) => setJobs(data))
-            .catch((err) => console.error("Error loading jobs:", err));
-    }, []);
+        if (isOpen) {
+            if (group) {
+                // تحديث بيانات الفورم بالقيم القادمة من الـ group
+                setData({
+                    name: group.name || "",
+                    visa_id: group.visa_id ? String(group.visa_id) : "",
+                    notes: group.notes || "",
+                });
 
-    // عند تحميل jobs، اظهر نص المهنة المحفوظة
-    useEffect(() => {
-        if (group?.notes && jobs.length > 0) {
-            const found = jobs.find((j) => j.Value === group.notes);
-            if (found) {
-                setSelectedJobText(found.Text);
-                setJobSearch(found.Text);
-            }
-        }
-    }, [jobs, group]);
-
-    // تحديث البيانات عند فتح المودال
-    useEffect(() => {
-        if (group) {
-            setData({
-                name: group.name,
-                visa_id: group.visa_id,
-                notes: group.notes || "",
-            });
-            if (jobs.length > 0 && group.notes) {
-                const found = jobs.find((j) => j.Value === group.notes);
-                if (found) {
-                    setSelectedJobText(found.Text);
-                    setJobSearch(found.Text);
-                }
+                // تحديث حقل البحث الخاص بالمهنة بناءً على الـ notes
+                const found = jobs.find(
+                    (j) => String(j.Value) === String(group.notes),
+                );
+                setJobSearch(found ? found.Text : "");
+            } else {
+                reset();
+                setJobSearch("");
             }
         } else {
-            reset();
-            setJobSearch("");
-            setSelectedJobText("");
+            clearErrors();
         }
-        clearErrors();
-        setJobDropdownOpen(false);
-    }, [group, isOpen]);
+    }, [isOpen, group, jobs]);
 
-    // اغلق الـ dropdown عند الضغط خارجه
+    // إغلاق القائمة عند النقر خارجها
     useEffect(() => {
-        const handleClickOutside = (e) => {
+        const handleClickOutside = (e: any) => {
             if (
                 dropdownRef.current &&
                 !dropdownRef.current.contains(e.target)
             ) {
                 setJobDropdownOpen(false);
-                if (selectedJobText) setJobSearch(selectedJobText);
-                else setJobSearch("");
             }
         };
         document.addEventListener("mousedown", handleClickOutside);
         return () =>
             document.removeEventListener("mousedown", handleClickOutside);
-    }, [selectedJobText]);
+    }, []);
 
-    // فلترة المهن
-    const filteredJobs = jobs.filter((job) =>
+    const filteredJobs = (jobs || []).filter((job) =>
         job.Text.toLowerCase().includes(jobSearch.toLowerCase()),
     );
 
-    const handleSubmit = (e) => {
+    const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
-
         if (group) {
             put(route("groups.update", group.id), {
                 onSuccess: () => onClose(),
             });
         } else {
-            post(route("groups.store"), {
-                onSuccess: () => {
-                    reset();
-                    setJobSearch("");
-                    setSelectedJobText("");
-                    onClose();
-                },
-            });
+            post(route("groups.store"), { onSuccess: () => onClose() });
         }
     };
 
@@ -123,11 +117,6 @@ export default function GroupForm({ isOpen, onClose, group, visas }) {
                             onChange={(e) => setData("name", e.target.value)}
                             className="w-full px-4 py-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl"
                         />
-                        {errors.name && (
-                            <p className="text-red-500 text-xs mt-1">
-                                {errors.name}
-                            </p>
-                        )}
                     </div>
 
                     {/* التأشيرة */}
@@ -142,19 +131,14 @@ export default function GroupForm({ isOpen, onClose, group, visas }) {
                         >
                             <option value="">اختر التأشيرة...</option>
                             {visas.map((visa) => (
-                                <option key={visa.id} value={visa.id}>
+                                <option key={visa.id} value={String(visa.id)}>
                                     {visa.name}
                                 </option>
                             ))}
                         </select>
-                        {errors.visa_id && (
-                            <p className="text-red-500 text-xs mt-1">
-                                {errors.visa_id}
-                            </p>
-                        )}
                     </div>
 
-                    {/* المهنة مع بحث */}
+                    {/* المهنة */}
                     <div>
                         <label className="block text-sm font-bold text-zinc-700 dark:text-zinc-300 mb-1">
                             المهنة
@@ -168,57 +152,51 @@ export default function GroupForm({ isOpen, onClose, group, visas }) {
                                     setJobDropdownOpen(true);
                                 }}
                                 onFocus={() => setJobDropdownOpen(true)}
-                                placeholder="ابحث عن المهنة أو اختر..."
+                                placeholder="ابحث عن المهنة..."
                                 className="w-full px-4 py-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl"
                             />
 
-                            {jobDropdownOpen && filteredJobs.length > 0 && (
+                            {jobDropdownOpen && (
                                 <ul className="absolute z-50 w-full mt-1 max-h-52 overflow-y-auto bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-lg">
-                                    {filteredJobs.map((job, index) => (
-                                        <li
-                                            key={index}
-                                            onMouseDown={() => {
-                                                setData("notes", job.Value);
-                                                setSelectedJobText(job.Text);
-                                                setJobSearch(job.Text);
-                                                setJobDropdownOpen(false);
-                                            }}
-                                            className={`px-4 py-2.5 text-sm cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800 border-b border-zinc-100 dark:border-zinc-800 last:border-0
-                                                ${data.notes === job.Value ? "text-emerald-600 font-bold" : "text-zinc-700 dark:text-zinc-300"}`}
-                                        >
-                                            {job.Text}
+                                    {filteredJobs.length > 0 ? (
+                                        filteredJobs.map((job) => (
+                                            <li
+                                                key={job.Value}
+                                                onMouseDown={() => {
+                                                    setData(
+                                                        "notes",
+                                                        String(job.Value),
+                                                    );
+                                                    setJobSearch(job.Text);
+                                                    setJobDropdownOpen(false);
+                                                }}
+                                                className={`px-4 py-2.5 text-sm cursor-pointer hover:bg-zinc-100 ${data.notes === String(job.Value) ? "text-emerald-600 font-bold" : "text-zinc-700"}`}
+                                            >
+                                                {job.Text}
+                                            </li>
+                                        ))
+                                    ) : (
+                                        <li className="px-4 py-3 text-sm text-zinc-400 text-center">
+                                            لا توجد نتائج
                                         </li>
-                                    ))}
+                                    )}
                                 </ul>
                             )}
-
-                            {jobDropdownOpen && filteredJobs.length === 0 && (
-                                <div className="absolute z-50 w-full mt-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-sm text-zinc-400 text-center">
-                                    لا توجد نتائج
-                                </div>
-                            )}
                         </div>
-                        {errors.notes && (
-                            <p className="text-red-500 text-xs mt-1">
-                                {errors.notes}
-                            </p>
-                        )}
                     </div>
 
-                    {/* الأزرار */}
                     <div className="flex justify-end gap-3 mt-6">
                         <button
                             type="button"
                             onClick={onClose}
-                            className="px-5 py-2.5 text-sm font-bold text-zinc-600 hover:bg-zinc-100 rounded-xl transition-all"
+                            className="px-5 py-2.5 text-sm font-bold text-zinc-600 hover:bg-zinc-100 rounded-xl"
                         >
                             إلغاء
                         </button>
-
                         <button
                             type="submit"
                             disabled={processing}
-                            className="px-5 py-2.5 text-sm font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-lg transition-all"
+                            className="px-5 py-2.5 text-sm font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl"
                         >
                             {processing ? "جاري الحفظ..." : "حفظ التغييرات"}
                         </button>

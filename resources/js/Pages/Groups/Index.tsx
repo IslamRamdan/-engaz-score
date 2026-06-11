@@ -18,10 +18,15 @@ interface Group {
     visa?: Visa; // التأشيرة المربوطة بالمجموعة
     customers_count?: number; // عدد العملاء القادم من الـ withCount في الكنترولر
 }
+export interface Job {
+    Value: string | number;
+    Text: string;
+}
 
 interface Props {
     groups: Group[];
     visas: Visa[]; // بنمررها هنا عشان الفورم يحتاجها لما يفتح في مودال الإضافة/التعديل
+    jobs: Job[]; // إضافة التايب هنا
 }
 
 export default function Index({ groups = [], visas = [], jobs = [] }: Props) {
@@ -193,20 +198,19 @@ export default function Index({ groups = [], visas = [], jobs = [] }: Props) {
                                                 className="px-6 py-4 text-sm text-zinc-500 dark:text-zinc-400 max-w-xs truncate"
                                                 title={
                                                     jobs.find(
-                                                        (j) =>
+                                                        (j: Job) =>
                                                             j.Value ===
-                                                            group.notes,
+                                                            group.notes, // إضافة النوع هنا
                                                     )?.Text ||
                                                     group.notes ||
                                                     ""
                                                 }
                                             >
                                                 {jobs.find(
-                                                    (j) =>
-                                                        j.Value === group.notes,
+                                                    (j: Job) =>
+                                                        j.Value === group.notes, // إضافة النوع هنا
                                                 )?.Text || "---"}
                                             </td>
-
                                             {/* الإجراءات */}
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center justify-center gap-1.5">
@@ -284,6 +288,7 @@ export default function Index({ groups = [], visas = [], jobs = [] }: Props) {
                 onClose={() => setIsModalOpen(false)}
                 group={selectedGroup}
                 visas={visas} // بنمرر التأشيرات هنا عشان تظهر بالـ Dropdown جوه الفورم
+                jobs={jobs} // يجب أن تكون jobs محملة وجاهزة هنا
             />
         </AppLayout>
     );
