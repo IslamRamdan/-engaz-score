@@ -8,19 +8,45 @@ import {
     ArrowRight,
     CheckSquare,
     Square,
-    MoreVertical,
     Trash2,
-    FileText,
-    Globe,
     Copy,
     Download,
     X,
     ChevronDown,
-    FolderPlus,
-    UserPlus,
+    MoreVertical,
+    Eye,
+    Edit,
+    Wallet,
+    MessageSquare,
+    FileText,
+    ChevronLeft,
+    Contact,
+    Printer,
+    Activity,
+    Stethoscope,
+    FlaskConical,
+    Sliders,
     UserMinus,
+    UserX,
+    Archive,
+    FileHeart,
 } from "lucide-react";
+import { useForm } from "@inertiajs/react";
 
+type MedicalStatus = "booked" | "fit" | "unfit" | null;
+type LabStatus = "booked" | "positive" | "negative" | null;
+type EnetStatus = "booked" | "not_booked" | null;
+export interface CustomerGroupPivot {
+    customer_id: number;
+    group_id: number;
+    medical_status: "booked" | "fit" | "unfit" | null;
+    medical_token: string | null;
+    lab_status: "booked" | "positive" | "negative" | null;
+    enet_status: "booked" | "not_booked" | null;
+    e_number: string | null;
+    created_at?: string;
+    updated_at?: string;
+}
 type Customer = {
     id: number;
     name_ar: string;
@@ -28,12 +54,17 @@ type Customer = {
     phone: string | null;
     whatsapp: string | null;
     nationality: string | null;
+    birth_date: string | null;
     passport_number: string | null;
     passport_expiry_date: string | null;
     visa_number: string | null;
     e_number: string | null;
     gender: string | null;
     personal_image?: string | null;
+    medical_status: MedicalStatus | null;
+    lab_status: LabStatus | null;
+    enet_status: EnetStatus | null;
+    pivot?: CustomerGroupPivot;
 };
 
 type Group = {
@@ -44,17 +75,34 @@ type Group = {
 type Props = {
     group: Group;
     customers: Customer[];
+    sponsorName: string;
+    issue_number: string;
+    id_number: string;
+    job: string;
 };
 
-export default function Show({ group, customers }: Props) {
+export default function Show({
+    group,
+    customers,
+    sponsorName,
+    issue_number,
+    id_number,
+    job,
+}: Props) {
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
     const [activeRowMenu, setActiveRowMenu] = useState<number | null>(null);
     const [isOperationsOpen, setIsOperationsOpen] = useState(false);
-    const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
-
-    // حالات الـ Popup الخاصة بالصورة
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
     const [isCopying, setIsCopying] = useState(false);
+    const [copiedField, setCopiedField] = useState<string | null>(null);
+    const [statusModal, setStatusModal] = useState<null | Customer>(null);
+    const { data, setData, put, processing, reset } = useForm({
+        medical_status: "",
+        medical_token: "",
+        lab_status: "",
+        enet_status: "",
+        e_number: "",
+    });
 
     const isAllSelected =
         customers.length > 0 && selectedIds.length === customers.length;
@@ -77,16 +125,13 @@ export default function Show({ group, customers }: Props) {
 
     const handleBulkRemove = () => {
         if (selectedIds.length === 0) return;
-
         if (
             confirm(
                 `هل أنت متأكد من إزالة ${selectedIds.length} عميل من هذه المجموعة؟`,
             )
         ) {
             router.delete(route("groups.remove-customers", group.id), {
-                data: {
-                    customer_ids: selectedIds,
-                },
+                data: { customer_ids: selectedIds },
                 preserveScroll: true,
                 onSuccess: () => {
                     setSelectedIds([]);
@@ -97,14 +142,9 @@ export default function Show({ group, customers }: Props) {
     };
 
     const handleRemoveSingleCustomer = (customerId: number) => {
-        if (!confirm("هل أنت متأكد من إزالة هذا العميل من المجموعة؟")) {
-            return;
-        }
-
+        if (!confirm("هل أنت متأكد من إزالة هذا العميل من المجموعة؟")) return;
         router.delete(route("groups.remove-customers", group.id), {
-            data: {
-                customer_ids: [customerId],
-            },
+            data: { customer_ids: [customerId] },
             preserveScroll: true,
             onSuccess: () => {
                 setSelectedIds((prev) =>
@@ -115,13 +155,11 @@ export default function Show({ group, customers }: Props) {
         });
     };
 
-    // دالة نسخ الصورة إلى الحافظة
     const handleCopyImage = async (imageUrl: string) => {
         try {
             setIsCopying(true);
             const response = await fetch(imageUrl);
             const blob = await response.blob();
-
             const img = new Image();
             img.src = URL.createObjectURL(blob);
             img.onload = async () => {
@@ -130,7 +168,6 @@ export default function Show({ group, customers }: Props) {
                 canvas.height = img.height;
                 const ctx = canvas.getContext("2d");
                 ctx?.drawImage(img, 0, 0);
-
                 canvas.toBlob(async (pngBlob) => {
                     if (pngBlob) {
                         await navigator.clipboard.write([
@@ -142,13 +179,89 @@ export default function Show({ group, customers }: Props) {
             };
         } catch (err) {
             console.error("Failed to copy image: ", err);
-            alert(
-                "فشل نسخ الصورة، قد يكون ذلك بسبب سياسات الحماية للمتصفح المضيف للصورة.",
-            );
+            alert("فشل نسخ الصورة، قد يكون ذلك بسبب سياسات الحماية للمتصفح.");
         } finally {
             setIsCopying(false);
         }
     };
+
+    const handleCopyText = async (text: string | null, fieldKey: string) => {
+        if (!text) return;
+        try {
+            await navigator.clipboard.writeText(text);
+            setCopiedField(fieldKey);
+            setTimeout(() => setCopiedField(null), 1500);
+        } catch (err) {
+            console.error("Failed to copy text: ", err);
+        }
+    };
+
+    const calculateAge = (birthDate: string | null): number | null => {
+        if (!birthDate) return null;
+        const today = new Date();
+        const birth = new Date(birthDate);
+        let age = today.getFullYear() - birth.getFullYear();
+        const monthDiff = today.getMonth() - birth.getMonth();
+        if (
+            monthDiff < 0 ||
+            (monthDiff === 0 && today.getDate() < birth.getDate())
+        ) {
+            age--;
+        }
+        return age;
+    };
+
+    const medicalStatusMap: Record<
+        NonNullable<MedicalStatus> | "default",
+        { label: string; color: "emerald" | "red" | "zinc" }
+    > = {
+        booked: { label: "بانتظار الكشف", color: "zinc" },
+        fit: { label: "لائق طبيًا (سليم)", color: "emerald" },
+        unfit: { label: "غير لائق (غير سليم)", color: "red" },
+        default: { label: "غير محدد", color: "zinc" }, // في حال كانت القيمة null
+    };
+
+    // 3. خريطة المعامل
+    const labStatusMap: Record<
+        NonNullable<LabStatus> | "default",
+        { label: string; color: "emerald" | "red" | "zinc" }
+    > = {
+        booked: { label: "بانتظار النتيجة", color: "zinc" },
+        positive: { label: "إيجابي", color: "red" },
+        negative: { label: "سلبي", color: "emerald" },
+        default: { label: "غير محدد", color: "zinc" }, // في حال كانت القيمة null
+    };
+
+    // 4. خريطة إنجاز / النت
+    const enetStatusMap: Record<
+        NonNullable<EnetStatus> | "default",
+        { label: string; color: "emerald" | "zinc" }
+    > = {
+        booked: { label: "تم الحجز", color: "emerald" },
+        not_booked: { label: "غير محجوز", color: "zinc" },
+        default: { label: "غير محجوز", color: "zinc" }, // في حال كانت القيمة null
+    };
+
+    const statusColorClasses: Record<string, string> = {
+        emerald:
+            "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900",
+        red: "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-400 border-red-200 dark:border-red-900",
+        zinc: "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700",
+    };
+
+    const StatusBadge = ({
+        label,
+        color,
+    }: {
+        label: string;
+        color: string;
+    }) => (
+        <span
+            className={`inline-flex items-center px-2 py-1 rounded-lg text-[11px] font-bold border whitespace-nowrap ${statusColorClasses[color]}`}
+        >
+            {label}
+        </span>
+    );
 
     return (
         <AppLayout>
@@ -175,9 +288,7 @@ export default function Show({ group, customers }: Props) {
                         </p>
                     </div>
 
-                    {/* أزرار التحكم جهة اليسار */}
                     <div className="flex items-center gap-3 self-start sm:self-auto relative">
-                        {/* زر العمليات */}
                         <div className="relative">
                             <button
                                 onClick={() =>
@@ -199,14 +310,13 @@ export default function Show({ group, customers }: Props) {
                                 )}
                             </button>
 
-                            {/* القائمة المنسدلة للعمليات */}
                             {isOperationsOpen && selectedIds.length > 0 && (
                                 <div className="absolute left-0 mt-2 w-56 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xl z-30 overflow-hidden">
                                     <button
                                         onClick={handleBulkRemove}
                                         className="w-full flex items-center gap-2 px-4 py-3 text-right text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors"
                                     >
-                                        <UserMinus className="w-4 h-4 text-red-500" />{" "}
+                                        <UserMinus className="w-4 h-4 text-red-500" />
                                         <span>ازالة العملاء من المجموعة</span>
                                     </button>
                                 </div>
@@ -223,39 +333,65 @@ export default function Show({ group, customers }: Props) {
                     </div>
                 </div>
 
-                {/* ===== STATS ===== */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-                    <div className="bg-white dark:bg-zinc-950 border border-zinc-200/80 dark:border-zinc-800/80 rounded-2xl p-5 shadow-sm">
-                        <p className="text-xs font-medium text-zinc-400 dark:text-zinc-500">
-                            إجمالي العملاء
-                        </p>
-                        <p className="text-3xl font-black text-zinc-900 dark:text-white mt-1">
-                            {customers.length}
-                        </p>
-                    </div>
-
-                    <div className="bg-white dark:bg-zinc-950 border border-zinc-200/80 dark:border-zinc-800/80 rounded-2xl p-5 shadow-sm">
-                        <p className="text-xs font-medium text-zinc-400 dark:text-zinc-500">
-                            جوازات سفر مسجلة
-                        </p>
-                        <p className="text-3xl font-black text-blue-600 dark:text-blue-400 mt-1">
-                            {customers.filter((c) => c.passport_number).length}
-                        </p>
-                    </div>
-
-                    <div className="bg-white dark:bg-zinc-950 border border-zinc-200/80 dark:border-zinc-800/80 rounded-2xl p-5 shadow-sm">
-                        <p className="text-xs font-medium text-zinc-400 dark:text-zinc-500">
-                            جاهز للتواصل (واتساب)
-                        </p>
-                        <p className="text-3xl font-black text-emerald-600 dark:text-emerald-400 mt-1">
-                            {customers.filter((c) => c.whatsapp).length}
-                        </p>
+                {/* ===== SPONSOR / GROUP INFO CARD ===== */}
+                <div className="bg-white dark:bg-zinc-950 border border-zinc-200/80 dark:border-zinc-800/80 rounded-2xl p-5 shadow-sm">
+                    <h2 className="text-sm font-black text-zinc-900 dark:text-white mb-4 flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-zinc-400" />
+                        بيانات الكفيل / المجموعة
+                    </h2>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {[
+                            {
+                                key: "sponsorName",
+                                label: "اسم الكفيل",
+                                value: sponsorName,
+                            },
+                            {
+                                key: "issue_number",
+                                label: "رقم الإصدار",
+                                value: issue_number,
+                            },
+                            {
+                                key: "id_number",
+                                label: "رقم الهوية",
+                                value: id_number,
+                            },
+                            { key: "job", label: "المهنة", value: job },
+                        ].map((field) => (
+                            <div
+                                key={field.key}
+                                className="flex items-center justify-between gap-2 bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-100 dark:border-zinc-800 rounded-xl p-3"
+                            >
+                                <div className="min-w-0">
+                                    <p className="text-[11px] font-medium text-zinc-400 dark:text-zinc-500">
+                                        {field.label}
+                                    </p>
+                                    <p className="text-sm font-bold text-zinc-900 dark:text-white truncate">
+                                        {field.value || "—"}
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={() =>
+                                        handleCopyText(field.value, field.key)
+                                    }
+                                    disabled={!field.value}
+                                    className="shrink-0 p-2 rounded-lg bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:text-emerald-600 hover:border-emerald-300 dark:hover:text-emerald-400 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                                    title="نسخ"
+                                >
+                                    {copiedField === field.key ? (
+                                        <CheckSquare className="w-3.5 h-3.5 text-emerald-500" />
+                                    ) : (
+                                        <Copy className="w-3.5 h-3.5" />
+                                    )}
+                                </button>
+                            </div>
+                        ))}
                     </div>
                 </div>
 
                 {/* ===== CUSTOMERS TABLE CARD ===== */}
-                <div className="bg-white dark:bg-zinc-950 border border-zinc-200/80 dark:border-zinc-800/80 rounded-2xl shadow-sm overflow-hidden">
-                    <div className="w-full overflow-x-auto">
+                <div className="bg-white dark:bg-zinc-950 border border-zinc-200/80 dark:border-zinc-800/80 rounded-2xl shadow-sm overflow-visible">
+                    <div className="w-full">
                         <table className="w-full text-right border-collapse">
                             <thead>
                                 <tr className="border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-900/50 text-xs font-bold text-zinc-500 dark:text-zinc-400">
@@ -271,13 +407,15 @@ export default function Show({ group, customers }: Props) {
                                             )}
                                         </button>
                                     </th>
-                                    <th className="p-4 min-w-[200px]">
-                                        العميل
+                                    <th className="p-4 min-w-[200px]">الاسم</th>
+                                    <th className="p-4">السن</th>
+                                    <th className="p-4">الهاتف / واتساب</th>
+                                    <th className="p-4">رقم الجواز</th>
+                                    <th className="p-4 text-center">
+                                        الكشف الطبي
                                     </th>
-                                    <th className="p-4">الجنسية</th>
-                                    <th className="p-4">بيانات الجواز</th>
-                                    <th className="p-4">رقم التأشيرة / E-No</th>
-                                    <th className="p-4">روابط التواصل</th>
+                                    <th className="p-4 text-center">المعامل</th>
+                                    <th className="p-4 text-center">إنجاز</th>
                                     <th className="p-4 w-20 text-center">
                                         العمليات
                                     </th>
@@ -292,6 +430,21 @@ export default function Show({ group, customers }: Props) {
                                         const imageUrl = c.personal_image
                                             ? `/storage/${c.personal_image}`
                                             : null;
+                                        const age = calculateAge(c.birth_date);
+                                        const medical = c.pivot?.medical_status
+                                            ? medicalStatusMap[
+                                                  c.pivot.medical_status
+                                              ]
+                                            : medicalStatusMap["default"];
+
+                                        const lab = c.pivot?.lab_status
+                                            ? labStatusMap[c.pivot.lab_status]
+                                            : labStatusMap["default"];
+
+                                        const enet = c.pivot?.enet_status
+                                            ? enetStatusMap[c.pivot.enet_status]
+                                            : enetStatusMap["default"];
+
                                         return (
                                             <tr
                                                 key={c.id}
@@ -315,7 +468,7 @@ export default function Show({ group, customers }: Props) {
                                                     </button>
                                                 </td>
 
-                                                {/* العميل */}
+                                                {/* الاسم */}
                                                 <td className="p-4">
                                                     <div className="flex items-center gap-3">
                                                         {imageUrl ? (
@@ -325,7 +478,7 @@ export default function Show({ group, customers }: Props) {
                                                                         imageUrl,
                                                                     )
                                                                 }
-                                                                className="w-10 h-10 rounded-full overflow-hidden border border-zinc-200 dark:border-zinc-700 hover:scale-105 transition shrink-0 cursor-pointer shadow-sm relative group"
+                                                                className="w-10 h-10 rounded-full overflow-hidden border border-zinc-200 dark:border-zinc-700 hover:scale-105 transition shrink-0 cursor-pointer shadow-sm"
                                                                 title="اضغط لعرض وتنزيل الصورة"
                                                             >
                                                                 <img
@@ -346,43 +499,99 @@ export default function Show({ group, customers }: Props) {
                                                                     : "🙋‍♂️"}
                                                             </div>
                                                         )}
-                                                        <div className="space-y-0.5 truncate max-w-[240px]">
-                                                            <p className="font-bold text-zinc-900 dark:text-white truncate">
+                                                        <div>
+                                                            <p className="font-bold text-zinc-900 dark:text-white">
                                                                 {c.name_ar}
                                                             </p>
-                                                            <p className="text-[11px] text-zinc-400 dark:text-zinc-500 font-mono truncate">
-                                                                {c.name_en ??
-                                                                    "—"}
-                                                            </p>
-                                                            <span className="inline-block text-[10px] px-1.5 py-0.2 bg-zinc-100 dark:bg-zinc-800 text-zinc-500 rounded font-mono">
-                                                                ID: #{c.id}
+                                                            {c.name_en && (
+                                                                <p className="text-[11px] text-zinc-400 dark:text-zinc-500">
+                                                                    {c.name_en}
+                                                                </p>
+                                                            )}
+                                                            <span className="inline-block text-[10px] px-1.5 py-0.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-500 rounded font-mono">
+                                                                #{c.id}
                                                             </span>
                                                         </div>
                                                     </div>
                                                 </td>
 
-                                                {/* الجنسية */}
-                                                <td className="p-4">
-                                                    <div className="flex items-center gap-1.5 text-zinc-600 dark:text-zinc-300">
-                                                        <Globe className="w-4 h-4 text-zinc-400" />
-                                                        <span className="font-medium">
-                                                            {c.nationality ??
-                                                                "غير محدد"}
+                                                {/* السن */}
+                                                <td className="p-4 whitespace-nowrap">
+                                                    {age !== null ? (
+                                                        <div>
+                                                            <p className="font-bold text-zinc-900 dark:text-white">
+                                                                {age} سنة
+                                                            </p>
+                                                            <p className="text-[11px] text-zinc-400 dark:text-zinc-500">
+                                                                {new Date(
+                                                                    c.birth_date!,
+                                                                ).toLocaleDateString(
+                                                                    "ar-EG",
+                                                                )}
+                                                            </p>
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-xs text-zinc-400">
+                                                            —
                                                         </span>
+                                                    )}
+                                                </td>
+
+                                                {/* الهاتف / واتساب */}
+                                                <td className="p-4">
+                                                    <div className="space-y-1.5">
+                                                        {c.phone && (
+                                                            <a
+                                                                href={`tel:${c.phone}`}
+                                                                className="flex items-center gap-1.5 text-xs font-bold text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white transition"
+                                                                dir="ltr"
+                                                                title="اتصال هاتفي"
+                                                            >
+                                                                <Phone className="w-3 h-3 text-zinc-400 shrink-0" />
+                                                                <span className="font-mono">
+                                                                    {c.phone}
+                                                                </span>
+                                                            </a>
+                                                        )}
+                                                        {c.whatsapp &&
+                                                            c.whatsapp !==
+                                                                c.phone && (
+                                                                <a
+                                                                    href={`https://wa.me/${c.whatsapp.replace(/\+/g, "")}`}
+                                                                    target="_blank"
+                                                                    rel="noreferrer"
+                                                                    className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 transition"
+                                                                    dir="ltr"
+                                                                    title="مراسلة واتساب"
+                                                                >
+                                                                    <MessageCircle className="w-3 h-3 shrink-0" />
+                                                                    <span className="font-mono">
+                                                                        {
+                                                                            c.whatsapp
+                                                                        }
+                                                                    </span>
+                                                                </a>
+                                                            )}
+                                                        {!c.phone &&
+                                                            !c.whatsapp && (
+                                                                <span className="text-xs text-zinc-400">
+                                                                    —
+                                                                </span>
+                                                            )}
                                                     </div>
                                                 </td>
 
-                                                {/* بيانات الجواز */}
+                                                {/* رقم الجواز */}
                                                 <td className="p-4">
                                                     {c.passport_number ? (
-                                                        <div className="space-y-1">
+                                                        <div>
                                                             <p className="font-mono font-bold text-zinc-900 dark:text-zinc-200">
                                                                 {
                                                                     c.passport_number
                                                                 }
                                                             </p>
                                                             <p className="text-[11px] text-zinc-400 dark:text-zinc-500">
-                                                                ينتهي في:{" "}
+                                                                ينتهي:{" "}
                                                                 {c.passport_expiry_date
                                                                     ? new Date(
                                                                           c.passport_expiry_date,
@@ -399,61 +608,54 @@ export default function Show({ group, customers }: Props) {
                                                     )}
                                                 </td>
 
-                                                {/* رقم التأشيرة */}
-                                                <td className="p-4">
-                                                    <div className="space-y-1">
-                                                        <p className="font-mono text-xs font-semibold text-zinc-700 dark:text-zinc-300">
-                                                            <span className="text-zinc-400 font-sans">
-                                                                تأشيرة:
-                                                            </span>{" "}
-                                                            {c.visa_number ??
-                                                                "—"}
-                                                        </p>
-                                                        <p className="font-mono text-[11px] text-zinc-400">
-                                                            <span className="text-zinc-500 font-sans">
-                                                                E-No:
-                                                            </span>{" "}
-                                                            {c.e_number ?? "—"}
-                                                        </p>
-                                                    </div>
+                                                {/* الكشف الطبي */}
+                                                <td className="p-4 text-center">
+                                                    {medical ? (
+                                                        <StatusBadge
+                                                            label={
+                                                                medical.label
+                                                            }
+                                                            color={
+                                                                medical.color
+                                                            }
+                                                        />
+                                                    ) : (
+                                                        <span className="text-xs text-zinc-400">
+                                                            —
+                                                        </span>
+                                                    )}
                                                 </td>
 
-                                                {/* روابط التواصل */}
-                                                <td className="p-4">
-                                                    <div className="flex items-center gap-2">
-                                                        {c.phone ? (
-                                                            <a
-                                                                href={`tel:${c.phone}`}
-                                                                className="p-2 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-700 transition"
-                                                                title="اتصال هاتفي"
-                                                            >
-                                                                <Phone className="w-3.5 h-3.5" />
-                                                            </a>
-                                                        ) : (
-                                                            <div className="p-2 text-zinc-300 dark:text-zinc-700">
-                                                                <Phone className="w-3.5 h-3.5" />
-                                                            </div>
-                                                        )}
-
-                                                        {c.whatsapp ? (
-                                                            <a
-                                                                href={`https://wa.me/${c.whatsapp.replace(/\+/g, "")}`}
-                                                                target="_blank"
-                                                                className="p-2 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition"
-                                                                title="مراسلة واتساب"
-                                                            >
-                                                                <MessageCircle className="w-3.5 h-3.5" />
-                                                            </a>
-                                                        ) : (
-                                                            <div className="p-2 text-zinc-300 dark:text-zinc-700">
-                                                                <MessageCircle className="w-3.5 h-3.5" />
-                                                            </div>
-                                                        )}
-                                                    </div>
+                                                {/* المعامل */}
+                                                <td className="p-4 text-center">
+                                                    {lab ? (
+                                                        <StatusBadge
+                                                            label={lab.label}
+                                                            color={lab.color}
+                                                        />
+                                                    ) : (
+                                                        <span className="text-xs text-zinc-400">
+                                                            —
+                                                        </span>
+                                                    )}
                                                 </td>
 
-                                                {/* قائمة العمليات الفردية */}
-                                                <td className="p-4 text-center relative">
+                                                {/* إنجاز */}
+                                                <td className="p-4 text-center">
+                                                    {enet ? (
+                                                        <StatusBadge
+                                                            label={enet.label}
+                                                            color={enet.color}
+                                                        />
+                                                    ) : (
+                                                        <span className="text-xs text-zinc-400">
+                                                            —
+                                                        </span>
+                                                    )}
+                                                </td>
+
+                                                {/* العمليات */}
+                                                <td className="p-4 text-center relative whitespace-nowrap overflow-visible">
                                                     <button
                                                         onClick={() =>
                                                             setActiveRowMenu(
@@ -470,6 +672,7 @@ export default function Show({ group, customers }: Props) {
 
                                                     {activeRowMenu === c.id && (
                                                         <>
+                                                            {/* خلفية لإغلاق القائمة عند الضغط في أي مكان خارجي */}
                                                             <div
                                                                 className="fixed inset-0 z-10"
                                                                 onClick={() =>
@@ -478,33 +681,254 @@ export default function Show({ group, customers }: Props) {
                                                                     )
                                                                 }
                                                             />
-                                                            <div className="absolute left-4 top-12 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 shadow-xl rounded-xl p-1 w-44 z-20 text-right animate-in fade-in zoom-in-95 duration-100">
-                                                                <Link
-                                                                    href={route(
-                                                                        "customers.show",
-                                                                        c.id,
-                                                                    )}
-                                                                    className="flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-lg text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
-                                                                >
-                                                                    <FileText className="w-4 h-4 text-zinc-400" />
-                                                                    الملف الكامل
-                                                                    للعميل
-                                                                </Link>
+
+                                                            {/* القائمة الرئيسية */}
+                                                            <div
+                                                                className="absolute left-4 top-12 w-48 bg-white dark:bg-zinc-900
+               border border-zinc-200 dark:border-zinc-700
+               shadow-xl rounded-xl p-1
+               z-[9999]"
+                                                            >
+                                                                {/* عرض */}
                                                                 <button
                                                                     onClick={() => {
+                                                                        setStatusModal(
+                                                                            c,
+                                                                        );
+
+                                                                        setData(
+                                                                            {
+                                                                                medical_status:
+                                                                                    c
+                                                                                        .pivot
+                                                                                        ?.medical_status ||
+                                                                                    "booked",
+                                                                                medical_token:
+                                                                                    c
+                                                                                        .pivot
+                                                                                        ?.medical_token ||
+                                                                                    "",
+                                                                                lab_status:
+                                                                                    c
+                                                                                        .pivot
+                                                                                        ?.lab_status ||
+                                                                                    "booked",
+                                                                                enet_status:
+                                                                                    c
+                                                                                        .pivot
+                                                                                        ?.enet_status ||
+                                                                                    "not_booked",
+                                                                                e_number:
+                                                                                    c
+                                                                                        .pivot
+                                                                                        ?.e_number ||
+                                                                                    "",
+                                                                            },
+                                                                        );
+
                                                                         setActiveRowMenu(
                                                                             null,
                                                                         );
-                                                                        handleRemoveSingleCustomer(
-                                                                            c.id,
-                                                                        );
                                                                     }}
-                                                                    className="w-full flex items-center gap-2 text-xs font-bold px-3 py-2 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition text-right"
+                                                                    className="w-full flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-lg text-info-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
                                                                 >
-                                                                    <Trash2 className="w-4 h-4" />
-                                                                    إزالة من
-                                                                    المجموعة
+                                                                    <FileHeart className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />{" "}
+                                                                    عرض الحالة
                                                                 </button>
+                                                                <Link
+                                                                    href={"/"}
+                                                                    className="flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-lg text-info-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
+                                                                >
+                                                                    <Eye className="w-4 h-4 text-info-500" />
+                                                                    عرض
+                                                                </Link>
+
+                                                                {/* تعديل */}
+                                                                <Link
+                                                                    href={route(
+                                                                        "customers.edit",
+                                                                        c.id,
+                                                                    )}
+                                                                    className="flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-lg text-blue-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
+                                                                >
+                                                                    <Edit className="w-4 h-4 text-blue-500" />
+                                                                    تعديل
+                                                                </Link>
+
+                                                                {/* الحسابات */}
+                                                                <Link
+                                                                    href={"/"}
+                                                                    className="flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-lg text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
+                                                                >
+                                                                    <Wallet className="w-4 h-4 text-zinc-400" />
+                                                                    الحسابات
+                                                                </Link>
+
+                                                                {/* واتساب */}
+                                                                {c.phone && (
+                                                                    <a
+                                                                        href={`https://wa.me/${c.phone}`}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        className="flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-lg text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition"
+                                                                    >
+                                                                        <MessageSquare className="w-4 h-4 text-emerald-500" />
+                                                                        واتساب
+                                                                    </a>
+                                                                )}
+
+                                                                <div className="border-t border-zinc-100 dark:border-zinc-800 my-1"></div>
+
+                                                                {/* قائمة فرعية: تقارير */}
+                                                                <div className="relative group/sub">
+                                                                    <button className="w-full flex items-center justify-between gap-2 text-xs font-semibold px-3 py-2 rounded-lg text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <FileText className="w-4 h-4 text-zinc-400" />
+                                                                            <span>
+                                                                                تقارير
+                                                                            </span>
+                                                                        </div>
+                                                                        <ChevronLeft className="w-3 h-3 text-zinc-400 group-hover/sub:-translate-x-0.5 transition-transform" />
+                                                                    </button>
+                                                                    {/* محتوى القائمة الفرعية */}
+                                                                    <div className="absolute left-full top-0 ml-1 hidden group-hover/sub:block bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 shadow-xl rounded-xl p-1 w-44 z-30">
+                                                                        <a
+                                                                            href={`/admin/nomination_card/${c.id}`}
+                                                                            target="_blank"
+                                                                            rel="noreferrer"
+                                                                            className="flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-lg text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
+                                                                        >
+                                                                            <Contact className="w-4 h-4 text-zinc-400" />
+                                                                            بطاقة
+                                                                            الترشيح
+                                                                        </a>
+                                                                        <a
+                                                                            href={`/admin/vissa/${c.id}`}
+                                                                            target="_blank"
+                                                                            rel="noreferrer"
+                                                                            className="flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-lg text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
+                                                                        >
+                                                                            <Printer className="w-4 h-4 text-zinc-400" />
+                                                                            طباعة
+                                                                            طلب
+                                                                            دخول
+                                                                        </a>
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* قائمة فرعية: الكشف الطبي */}
+                                                                <div className="relative group/sub">
+                                                                    <button className="w-full flex items-center justify-between gap-2 text-xs font-semibold px-3 py-2 rounded-lg text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <Activity className="w-4 h-4 text-zinc-400" />
+                                                                            <span>
+                                                                                الكشف
+                                                                                الطبي
+                                                                            </span>
+                                                                        </div>
+                                                                        <ChevronLeft className="w-3 h-3 text-zinc-400 group-hover/sub:-translate-x-0.5 transition-transform" />
+                                                                    </button>
+                                                                    <div className="absolute left-full top-0 ml-1 hidden group-hover/sub:block bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 shadow-xl rounded-xl p-1 w-44 z-30">
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                setActiveRowMenu(
+                                                                                    null,
+                                                                                );
+                                                                            }}
+                                                                            className="w-full flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-lg text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition text-right"
+                                                                        >
+                                                                            <Stethoscope className="w-4 h-4 text-zinc-400" />
+                                                                            حجز
+                                                                            الكشف
+                                                                            الطبي
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* قائمة فرعية: المعامل */}
+                                                                <div className="relative group/sub">
+                                                                    <button className="w-full flex items-center justify-between gap-2 text-xs font-semibold px-3 py-2 rounded-lg text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <FlaskConical className="w-4 h-4 text-zinc-400" />
+                                                                            <span>
+                                                                                المعامل
+                                                                            </span>
+                                                                        </div>
+                                                                        <ChevronLeft className="w-3 h-3 text-zinc-400 group-hover/sub:-translate-x-0.5 transition-transform" />
+                                                                    </button>
+                                                                    <div className="absolute left-full top-0 ml-1 hidden group-hover/sub:block bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 shadow-xl rounded-xl p-1 w-44 z-30">
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                setActiveRowMenu(
+                                                                                    null,
+                                                                                );
+                                                                            }}
+                                                                            className="w-full flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-lg text-emerald-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition text-right"
+                                                                        >
+                                                                            <FlaskConical className="w-4 h-4 text-emerald-500" />
+                                                                            حجز
+                                                                            المعامل
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* قائمة فرعية: الإجراءات */}
+                                                                <div className="relative group/sub">
+                                                                    <button className="w-full flex items-center justify-between gap-2 text-xs font-semibold px-3 py-2 rounded-lg text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <Sliders className="w-4 h-4 text-zinc-400" />
+                                                                            <span>
+                                                                                الإجراءات
+                                                                            </span>
+                                                                        </div>
+                                                                        <ChevronLeft className="w-3 h-3 text-zinc-400 group-hover/sub:-translate-x-0.5 transition-transform" />
+                                                                    </button>
+                                                                    <div className="absolute left-full top-0 ml-1 hidden group-hover/sub:block bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 shadow-xl rounded-xl p-1 w-44 z-30">
+                                                                        {/* إزالة من المجموعة */}
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                setActiveRowMenu(
+                                                                                    null,
+                                                                                );
+                                                                                handleRemoveSingleCustomer(
+                                                                                    c.id,
+                                                                                );
+                                                                            }}
+                                                                            className="w-full flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 transition text-right"
+                                                                        >
+                                                                            <UserMinus className="w-4 h-4" />
+                                                                            إزالة
+                                                                            من
+                                                                            المجموعة
+                                                                        </button>
+
+                                                                        {/* بلوك */}
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                setActiveRowMenu(
+                                                                                    null,
+                                                                                );
+                                                                            }}
+                                                                            className="w-full flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 transition text-right"
+                                                                        >
+                                                                            <UserX className="w-4 h-4" />
+                                                                            بلوك
+                                                                        </button>
+
+                                                                        {/* أرشفة */}
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                setActiveRowMenu(
+                                                                                    null,
+                                                                                );
+                                                                            }}
+                                                                            className="w-full flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition text-right"
+                                                                        >
+                                                                            <Archive className="w-4 h-4" />
+                                                                            أرشفة
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
                                                             </div>
                                                         </>
                                                     )}
@@ -515,7 +939,7 @@ export default function Show({ group, customers }: Props) {
                                 ) : (
                                     <tr>
                                         <td
-                                            colSpan={7}
+                                            colSpan={9}
                                             className="p-12 text-center text-zinc-400 dark:text-zinc-500"
                                         >
                                             <div className="flex flex-col items-center justify-center gap-2">
@@ -534,16 +958,14 @@ export default function Show({ group, customers }: Props) {
                 </div>
             </div>
 
-            {/* ===== IMAGE MODAL POPUP ===== */}
+            {/* ===== IMAGE MODAL ===== */}
             {selectedImage && (
-                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                     <div
                         className="absolute inset-0"
                         onClick={() => setSelectedImage(null)}
                     />
-
-                    <div className="bg-zinc-900 text-white rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl relative z-10 border border-zinc-800 animate-in zoom-in-95 duration-200">
-                        {/* Header Bar */}
+                    <div className="bg-zinc-900 text-white rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl relative z-10 border border-zinc-800">
                         <div className="flex items-center justify-between p-4 border-b border-zinc-800 bg-zinc-900/50">
                             <h3 className="text-xs font-bold tracking-wide text-zinc-400">
                                 معاينة صورة العميل
@@ -555,8 +977,6 @@ export default function Show({ group, customers }: Props) {
                                 <X className="w-4 h-4" />
                             </button>
                         </div>
-
-                        {/* Image Body */}
                         <div className="p-6 flex items-center justify-center bg-zinc-950/40 border-b border-zinc-800">
                             <img
                                 src={selectedImage}
@@ -564,8 +984,6 @@ export default function Show({ group, customers }: Props) {
                                 className="max-h-[60vh] max-w-full rounded-lg object-contain shadow-md"
                             />
                         </div>
-
-                        {/* Actions Footer */}
                         <div
                             className="p-4 bg-zinc-900/80 flex items-center justify-end gap-2"
                             dir="rtl"
@@ -588,6 +1006,171 @@ export default function Show({ group, customers }: Props) {
                                 <Download className="w-4 h-4" />
                                 تنزيل الصورة
                             </a>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {statusModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/40 backdrop-blur-sm transition-opacity">
+                    <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xl p-6 w-full max-w-lg mx-4 transform transition-all">
+                        {/* الهيدر */}
+                        <div className="flex items-center justify-between mb-6 pb-3 border-b border-zinc-100 dark:border-zinc-800">
+                            <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-50 flex items-center gap-2">
+                                <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                                تحديث بيانات العميل الطبية
+                            </h2>
+                            <button
+                                onClick={() => setStatusModal(null)}
+                                className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 p-1 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        {/* الحقول الإدخالية */}
+                        <div className="space-y-5">
+                            {/* قسم الكشف الطبي */}
+                            <div className="bg-zinc-50 dark:bg-zinc-850/50 p-4 rounded-xl border border-zinc-100 dark:border-zinc-800/60 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+                                        الكشف الطبي
+                                    </label>
+                                    <select
+                                        value={data.medical_status || "booked"}
+                                        onChange={(e) =>
+                                            setData(
+                                                "medical_status",
+                                                e.target.value,
+                                            )
+                                        }
+                                        className="w-full text-sm border border-zinc-200 dark:border-zinc-750 bg-white dark:bg-zinc-900 rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition text-zinc-800 dark:text-zinc-200"
+                                    >
+                                        <option value="booked">
+                                            في انتظار الحجز
+                                        </option>
+                                        <option value="fit">لائق طبياً</option>
+                                        <option value="unfit">غير لائق</option>
+                                    </select>
+                                </div>
+
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+                                        رقم التوكن
+                                    </label>
+                                    <input
+                                        type="text"
+                                        placeholder="أدخل رقم التوكن"
+                                        value={data.medical_token || ""}
+                                        onChange={(e) =>
+                                            setData(
+                                                "medical_token",
+                                                e.target.value,
+                                            )
+                                        }
+                                        className="w-full text-sm border border-zinc-200 dark:border-zinc-750 bg-white dark:bg-zinc-900 rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition text-zinc-800 dark:text-zinc-200"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* قسم المعامل والنت */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+                                        المعامل
+                                    </label>
+                                    <select
+                                        value={data.lab_status || "booked"}
+                                        onChange={(e) =>
+                                            setData(
+                                                "lab_status",
+                                                e.target.value,
+                                            )
+                                        }
+                                        className="w-full text-sm border border-zinc-200 dark:border-zinc-750 bg-white dark:bg-zinc-900 rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition text-zinc-800 dark:text-zinc-200"
+                                    >
+                                        <option value="booked">
+                                            في انتظار النتيجة
+                                        </option>
+                                        <option value="negative">سلبي</option>
+                                        <option value="positive">إيجابي</option>
+                                    </select>
+                                </div>
+
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+                                        إنجاز (النت)
+                                    </label>
+                                    <select
+                                        value={data.enet_status || "not_booked"}
+                                        onChange={(e) =>
+                                            setData(
+                                                "enet_status",
+                                                e.target.value,
+                                            )
+                                        }
+                                        className="w-full text-sm border border-zinc-200 dark:border-zinc-750 bg-white dark:bg-zinc-900 rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition text-zinc-800 dark:text-zinc-200"
+                                    >
+                                        <option value="not_booked">
+                                            غير محجوز
+                                        </option>
+                                        <option value="booked">تم الحجز</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* حقل E Number */}
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+                                    E Number
+                                </label>
+                                <input
+                                    type="text"
+                                    placeholder="E-00000000"
+                                    value={data.e_number || ""}
+                                    onChange={(e) =>
+                                        setData("e_number", e.target.value)
+                                    }
+                                    className="w-full text-sm font-mono border border-zinc-200 dark:border-zinc-750 bg-white dark:bg-zinc-900 rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition text-zinc-800 dark:text-zinc-200 text-left"
+                                    dir="ltr"
+                                />
+                            </div>
+                        </div>
+
+                        {/* أزرار التحكم */}
+                        <div className="flex justify-end gap-3 mt-8 pt-4 border-t border-zinc-100 dark:border-zinc-800">
+                            <button
+                                onClick={() => setStatusModal(null)}
+                                className="px-4 py-2 text-sm font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl transition-all"
+                            >
+                                إلغاء
+                            </button>
+
+                            <button
+                                disabled={processing}
+                                onClick={() => {
+                                    put(
+                                        route(
+                                            "groups.customers.status.update",
+                                            [group.id, statusModal.id],
+                                        ),
+                                        {
+                                            preserveScroll: true,
+                                            onSuccess: () =>
+                                                setStatusModal(null),
+                                        },
+                                    );
+                                }}
+                                className="px-5 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl shadow-sm shadow-emerald-500/10 transition-all flex items-center gap-1.5"
+                            >
+                                {processing ? (
+                                    <>
+                                        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                                        جاري الحفظ...
+                                    </>
+                                ) : (
+                                    "حفظ التعديلات"
+                                )}
+                            </button>
                         </div>
                     </div>
                 </div>

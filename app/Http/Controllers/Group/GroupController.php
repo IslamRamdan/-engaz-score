@@ -165,9 +165,22 @@ class GroupController extends Controller
         $group = Group::with(['customers', 'visa'])
             ->where('company_id', auth()->user()->company_id)
             ->findOrFail($id);
+
+        $visa = $group->visa;
+        $sponsor = $visa ? $visa->sponsor : null;
+        $sponsorName = $sponsor ? $sponsor->name : "غير متوفر";
+        $id_number = $sponsor ? $sponsor->id_number : "غير متوفر";
+        $issue_number = $visa ? $visa->issue_number : "غير متوفر";
+
+        // return $group->customers;
+
         return Inertia::render('Groups/Show', [
             'group' => $group,
             'customers' => $group->customers,
+            'sponsorName' => $sponsorName,
+            'issue_number' => $issue_number,
+            'id_number' => $id_number,
+            'job' => $group->notes
         ]);
     }
     public function removeCustomers(Request $request, Group $group)
@@ -180,5 +193,26 @@ class GroupController extends Controller
         $group->customers()->detach($validated['customer_ids']);
 
         return back()->with('success', 'تم إزالة العملاء من المجموعة بنجاح');
+    }
+
+    public function updateCustomerStatus(
+        Request $request,
+        Group $group,
+        Customer $customer
+    ) {
+        $validated = $request->validate([
+            'medical_status' => ['nullable', 'in:booked,fit,unfit'],
+            'medical_token'  => ['nullable', 'string', 'max:255'],
+            'lab_status'     => ['nullable', 'in:booked,positive,negative'],
+            'enet_status'    => ['nullable', 'in:booked,not_booked'],
+            'e_number'       => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $group->customers()->updateExistingPivot(
+            $customer->id,
+            $validated
+        );
+
+        return back()->with('success', 'تم تحديث البيانات بنجاح');
     }
 }

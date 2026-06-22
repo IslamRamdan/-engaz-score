@@ -145,6 +145,9 @@ class Customer extends Model
 
     public function groups()
     {
-        return $this->belongsToMany(Group::class, 'customer_group');
+        return $this->belongsToMany(Group::class, 'customer_group')
+            ->using(CustomerGroup::class) // هنا نربط الموديل الوسيط
+            ->withPivot(['medical_status', 'medical_token', 'lab_status', 'enet_status', 'e_number'])
+            ->withTimestamps();
     }
 }

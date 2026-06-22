@@ -134,6 +134,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         '/groups/{group}/customers/remove',
         [GroupController::class, 'removeCustomers']
     )->name('groups.remove-customers');
+
+    Route::put('/groups/{group}/customers/{customer}/status', [GroupController::class, 'updateCustomerStatus'])
+        ->name('groups.customers.status.update');
 });
 
 
