@@ -13,6 +13,8 @@ use App\Models\Visa;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+use App\Http\Controllers\BagController;
+use App\Models\Bag;
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
@@ -24,10 +26,13 @@ Route::get('/', function () {
 });
 
 Route::get('/dashboard', function () {
+    // جلب آيدي الشركة المرتبطة باليوزر الحالي مباشرة
+    $companyId = auth()->user()->company_id;
 
     return Inertia::render('Dashboard', [
-        'groups' => Group::withCount('customers')->latest()->get(),
-        'visas'  => Visa::latest()->get(),
+        'groups' => Group::where('company_id', $companyId)->withCount('customers')->latest()->get(),
+        'visas'  => Visa::where('company_id', $companyId)->latest()->get(),
+        'bags'   => Bag::where('company_id', $companyId)->withCount('customers')->latest()->get(),
     ]);
 })->middleware(['auth', 'verified'])->name('dashboard');
 
@@ -140,6 +145,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
 });
 
 
+Route::resource('bags', BagController::class);
 
+Route::middleware(['auth'])->group(function () {
+    // الروت الخاص بإضافة العملاء بكميات كبيرة إلى مجموعة أخرى
+    // Route::post('/groups/add-customers-bulk', [BagController::class, 'addCustomersBulk'])
+    //     ->name('groups.add-customers-bulk');
+    Route::post('/bags/add-customers-bulk', [BagController::class, 'addCustomersBulk'])
+        ->name('bags.add-customers-bulk');
+});
+Route::middleware(['auth'])->group(function () {
+    Route::get('/bags/{bag}', [BagController::class, 'show'])->name('bags.show');
+});
 
 require __DIR__ . '/auth.php';

@@ -8,6 +8,7 @@ import {
     Clock,
     Activity,
     Layers,
+    Briefcase, // استيراد أيكون الحقيبة
 } from "lucide-react";
 import { Link } from "@inertiajs/react";
 
@@ -24,12 +25,19 @@ type Visa = {
     created_at: string;
 };
 
+type Bag = {
+    id: number;
+    name: string;
+    customers_count?: number; // عدد العملاء في الحقيبة
+};
+
 type Props = {
     groups: Group[];
     visas: Visa[];
+    bags: Bag[]; // استقبال الحقائب هنا
 };
 
-export default function Dashboard({ groups, visas }: Props) {
+export default function Dashboard({ groups, visas, bags = [] }: Props) {
     // ===== STATS =====
     const stats = [
         {
@@ -47,13 +55,11 @@ export default function Dashboard({ groups, visas }: Props) {
             desc: "مجموعة نشطة حالياً",
         },
         {
-            label: "إجمالي العملاء",
-            value: groups
-                .reduce((sum, g) => sum + (g.customers_count || 0), 0)
-                .toString(),
-            icon: UserCheck,
+            label: "إجمالي الحقائب",
+            value: bags.length.toString(),
+            icon: Briefcase,
             color: "text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 dark:text-emerald-400",
-            desc: "عميل مرتبط بالمجموعات",
+            desc: "حقيبة مضافة بالنظام",
         },
         {
             label: "معدل التشغيل",
@@ -99,7 +105,7 @@ export default function Dashboard({ groups, visas }: Props) {
                         </h1>
                         <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
                             متابعة فورية ونظرة عامة على نظام التأشيرات
-                            والمجموعات
+                            والمجموعات والحقائب
                         </p>
                     </div>
 
@@ -162,12 +168,10 @@ export default function Dashboard({ groups, visas }: Props) {
                                     key={i}
                                     className="flex-1 flex flex-col items-center justify-end h-full group relative"
                                 >
-                                    {/* Tooltip on Hover */}
                                     <div className="absolute -top-6 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 text-[11px] px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 shadow font-bold pointer-events-none">
                                         {d.value}
                                     </div>
 
-                                    {/* Bar */}
                                     <div
                                         className="w-full bg-gradient-to-t from-emerald-600 to-emerald-400 dark:from-emerald-500 dark:to-emerald-300 rounded-t-xl group-hover:from-emerald-500 group-hover:to-emerald-300 transition-all duration-300 shadow-sm"
                                         style={{
@@ -221,7 +225,48 @@ export default function Dashboard({ groups, visas }: Props) {
                     </div>
                 </div>
 
-                {/* ===== ALL GROUPS ===== */}
+                {/* ===== ALL BAGS (قسم الحقائب المضاف حديثاً) ===== */}
+                <div className="bg-white dark:bg-zinc-950 border border-zinc-200/80 dark:border-zinc-800/80 rounded-2xl p-6 shadow-sm">
+                    <div className="flex items-center justify-between mb-5">
+                        <h3 className="font-black text-lg flex items-center gap-2">
+                            <Briefcase className="w-5 h-5 text-emerald-500" />
+                            نظرة عامة على الحقائب
+                        </h3>
+                        <span className="text-xs bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 px-2.5 py-1 rounded-full font-bold">
+                            {bags.length} حقيبة
+                        </span>
+                    </div>
+
+                    {bags.length === 0 ? (
+                        <p className="text-sm text-zinc-400 text-center py-6">
+                            لا توجد حقائب حالية
+                        </p>
+                    ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                            {bags.map((b) => (
+                                <Link
+                                    key={b.id}
+                                    href={route("bags.show", b.id)}
+                                    className="block bg-zinc-50 dark:bg-zinc-900/40 border border-zinc-100 dark:border-zinc-800/60 rounded-xl p-4 hover:border-emerald-300 dark:hover:border-emerald-900/80 transition-all duration-200 hover:shadow-md"
+                                >
+                                    <p className="font-bold text-zinc-900 dark:text-white truncate">
+                                        {b.name}
+                                    </p>
+
+                                    <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-zinc-200/60 dark:border-zinc-800/60">
+                                        <span className="text-xs text-zinc-400 dark:text-zinc-500">
+                                            عدد العملاء:
+                                        </span>
+                                        <span className="text-xs font-black bg-zinc-200/60 dark:bg-zinc-800 px-2 py-0.5 rounded text-zinc-700 dark:text-zinc-300">
+                                            {b.customers_count ?? 0}
+                                        </span>
+                                    </div>
+                                </Link>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
                 {/* ===== ALL GROUPS ===== */}
                 <div className="bg-white dark:bg-zinc-950 border border-zinc-200/80 dark:border-zinc-800/80 rounded-2xl p-6 shadow-sm">
                     <div className="flex items-center justify-between mb-5">
@@ -254,7 +299,6 @@ export default function Dashboard({ groups, visas }: Props) {
                                         <span className="text-xs text-zinc-400 dark:text-zinc-500">
                                             عدد العملاء:
                                         </span>
-
                                         <span className="text-xs font-black bg-zinc-200/60 dark:bg-zinc-800 px-2 py-0.5 rounded text-zinc-700 dark:text-zinc-300">
                                             {g.customers_count ?? 0}
                                         </span>

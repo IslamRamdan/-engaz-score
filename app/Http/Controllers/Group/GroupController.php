@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Group;
 
 use App\Http\Controllers\Controller;
+use App\Models\Bag;
 use App\Models\Group;
 use App\Models\Visa;
 use App\Models\Customer;
@@ -180,7 +181,8 @@ class GroupController extends Controller
             'sponsorName' => $sponsorName,
             'issue_number' => $issue_number,
             'id_number' => $id_number,
-            'job' => $group->notes
+            'job' => $group->notes,
+            'bags' => Bag::select('id', 'name')->get(), // جلب كل الحقائب المتاحة
         ]);
     }
     public function removeCustomers(Request $request, Group $group)

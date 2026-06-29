@@ -47,6 +47,10 @@ export interface CustomerGroupPivot {
     created_at?: string;
     updated_at?: string;
 }
+interface Bag {
+    id: number;
+    name: string;
+}
 type Customer = {
     id: number;
     name_ar: string;
@@ -79,6 +83,7 @@ type Props = {
     issue_number: string;
     id_number: string;
     job: string;
+    bags: Bag[]; // استقبال الحقائب هنا
 };
 
 export default function Show({
@@ -88,6 +93,7 @@ export default function Show({
     issue_number,
     id_number,
     job,
+    bags = [],
 }: Props) {
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
     const [activeRowMenu, setActiveRowMenu] = useState<number | null>(null);
@@ -96,6 +102,10 @@ export default function Show({
     const [isCopying, setIsCopying] = useState(false);
     const [copiedField, setCopiedField] = useState<string | null>(null);
     const [statusModal, setStatusModal] = useState<null | Customer>(null);
+
+    const [isMoveModalOpen, setIsMoveModalOpen] = useState(false);
+    const [targetBagId, setTargetBagId] = useState<number | "">("");
+
     const { data, setData, put, processing, reset } = useForm({
         medical_status: "",
         medical_token: "",
@@ -113,6 +123,28 @@ export default function Show({
         } else {
             setSelectedIds(customers.map((c) => c.id));
         }
+    };
+
+    const handleBulkAddToBag = () => {
+        if (selectedIds.length === 0 || !targetBagId) return;
+
+        router.post(
+            route("bags.add-customers-bulk"),
+            {
+                customer_ids: selectedIds,
+                bag_id: targetBagId,
+            },
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    setSelectedIds([]);
+                    setIsMoveModalOpen(false);
+                    setIsOperationsOpen(false);
+                    setTargetBagId("");
+                    alert("تم إضافة العملاء إلى الحقيبة بنجاح!");
+                },
+            },
+        );
     };
 
     const handleSelectRow = (id: number) => {
@@ -318,6 +350,13 @@ export default function Show({
                                     >
                                         <UserMinus className="w-4 h-4 text-red-500" />
                                         <span>ازالة العملاء من المجموعة</span>
+                                    </button>
+                                    <button
+                                        onClick={() => setIsMoveModalOpen(true)}
+                                        className="w-full flex items-center gap-2 px-4 py-3 text-right text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors border-b border-zinc-100 dark:border-zinc-800"
+                                    >
+                                        <Archive className="w-4 h-4 text-emerald-500" />
+                                        <span>إضافة إلى حقيبة</span>
                                     </button>
                                 </div>
                             )}
@@ -1170,6 +1209,66 @@ export default function Show({
                                 ) : (
                                     "حفظ التعديلات"
                                 )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ===== MOVE/ADD TO GROUP MODAL ===== */}
+            {isMoveModalOpen && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div
+                        className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl relative"
+                        dir="rtl"
+                    >
+                        <button
+                            onClick={() => setIsMoveModalOpen(false)}
+                            className="absolute left-4 top-4 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
+
+                        <div className="flex items-center gap-2 border-b border-zinc-100 dark:border-zinc-800 pb-3">
+                            <Archive className="w-5 h-5 text-emerald-500" />
+                            <h3 className="text-lg font-black text-zinc-900 dark:text-white">
+                                إضافة {selectedIds.length} عميل إلى حقيبة
+                            </h3>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold text-zinc-500 dark:text-zinc-400">
+                                اختر الحقيبة المستهدفة:
+                            </label>
+                            <select
+                                value={targetBagId}
+                                onChange={(e) =>
+                                    setTargetBagId(Number(e.target.value))
+                                }
+                                className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 text-zinc-800 dark:text-zinc-100"
+                            >
+                                <option value="">-- اختر حقيبة --</option>
+                                {bags.map((bag) => (
+                                    <option key={bag.id} value={bag.id}>
+                                        {bag.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className="flex items-center justify-end gap-3 pt-2">
+                            <button
+                                onClick={() => setIsMoveModalOpen(false)}
+                                className="px-4 py-2.5 text-xs font-bold rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 transition"
+                            >
+                                إلغاء
+                            </button>
+                            <button
+                                onClick={handleBulkAddToBag}
+                                disabled={!targetBagId}
+                                className="px-5 py-2.5 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                            >
+                                تأكيد الإضافة
                             </button>
                         </div>
                     </div>

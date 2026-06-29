@@ -41,11 +41,11 @@ interface Customer {
     mrz?: string | null;
     national_id?: string | null;
     visa_number?: string | null;
-    e_number?: string | null;
-    medical_status?: "booked" | "fit" | "unfit" | null;
-    medical_token?: string | null;
-    lab_status?: "booked" | "positive" | "negative" | null;
-    enet_status?: "booked" | "not_booked" | null;
+    // e_number?: string | null;
+    // medical_status?: "booked" | "fit" | "unfit" | null;
+    // medical_token?: string | null;
+    // lab_status?: "booked" | "positive" | "negative" | null;
+    // enet_status?: "booked" | "not_booked" | null;
     notes?: string | null;
     passport_image?: string | null;
     personal_image?: string | null;
@@ -78,11 +78,11 @@ interface FormState {
     mrz: string;
     national_id: string;
     visa_number: string;
-    e_number: string;
-    medical_status: "booked" | "fit" | "unfit";
-    medical_token: string;
-    lab_status: "booked" | "positive" | "negative";
-    enet_status: "booked" | "not_booked";
+    // e_number: string;
+    // medical_status: "booked" | "fit" | "unfit";
+    // medical_token: string;
+    // lab_status: "booked" | "positive" | "negative";
+    // enet_status: "booked" | "not_booked";
     notes: string;
     delegate_id: string | number;
     passport_image: File | null;
@@ -99,68 +99,68 @@ function toDisplay(iso: string) {
 }
 
 // ─── Badge الحالة ─────────────────────────────────────────────────────────────
-function StatusBadge({
-    value,
-    type,
-}: {
-    value: string;
-    type: "medical" | "lab" | "enet";
-}) {
-    const configs = {
-        medical: {
-            booked: {
-                label: "محجوز",
-                cls: "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300",
-            },
-            fit: {
-                label: "لائق",
-                cls: "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300",
-            },
-            unfit: {
-                label: "غير لائق",
-                cls: "bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300",
-            },
-        },
-        lab: {
-            booked: {
-                label: "محجوز",
-                cls: "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300",
-            },
-            positive: {
-                label: "إيجابي",
-                cls: "bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300",
-            },
-            negative: {
-                label: "سلبي",
-                cls: "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300",
-            },
-        },
-        enet: {
-            booked: {
-                label: "محجوز",
-                cls: "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300",
-            },
-            not_booked: {
-                label: "غير محجوز",
-                cls: "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400",
-            },
-        },
-    } as const;
+// function StatusBadge({
+//     value,
+//     type,
+// }: {
+//     value: string;
+//     type: "medical" | "lab" | "enet";
+// }) {
+//     const configs = {
+//         medical: {
+//             booked: {
+//                 label: "محجوز",
+//                 cls: "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300",
+//             },
+//             fit: {
+//                 label: "لائق",
+//                 cls: "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300",
+//             },
+//             unfit: {
+//                 label: "غير لائق",
+//                 cls: "bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300",
+//             },
+//         },
+//         lab: {
+//             booked: {
+//                 label: "محجوز",
+//                 cls: "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300",
+//             },
+//             positive: {
+//                 label: "إيجابي",
+//                 cls: "bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300",
+//             },
+//             negative: {
+//                 label: "سلبي",
+//                 cls: "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300",
+//             },
+//         },
+//         enet: {
+//             booked: {
+//                 label: "محجوز",
+//                 cls: "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300",
+//             },
+//             not_booked: {
+//                 label: "غير محجوز",
+//                 cls: "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400",
+//             },
+//         },
+//     } as const;
 
-    const map = configs[type] as Record<string, { label: string; cls: string }>;
-    const cfg = map[value] ?? {
-        label: value,
-        cls: "bg-zinc-100 text-zinc-500",
-    };
+//     const map = configs[type] as Record<string, { label: string; cls: string }>;
+//     const cfg = map[value] ?? {
+//         label: value,
+//         cls: "bg-zinc-100 text-zinc-500",
+//     };
 
-    return (
-        <span
-            className={`inline-block text-[10px] font-black px-2 py-0.5 rounded-full ${cfg.cls}`}
-        >
-            {cfg.label}
-        </span>
-    );
-}
+//     return (
+//         <span
+//             className={`inline-block text-[10px] font-black px-2 py-0.5 rounded-full ${cfg.cls}`}
+//         >
+//             {cfg.label}
+//         </span>
+//     );
+// }
 
 // ─── مكوّن صف الصورة ──────────────────────────────────────────────────────────
 function ImageRow({
@@ -358,11 +358,11 @@ function DateField({
             <div className="relative">
                 <input
                     type="date"
-                    value={value}
+                    value={value || ""} // لضمان عدم حدوث مشاكل إذا كانت القيمة undefined
                     onChange={(e) => onChange(e.target.value)}
                     className={
                         inputCls +
-                        " text-transparent dark:text-transparent caret-transparent cursor-pointer"
+                        " text-transparent dark:text-transparent caret-transparent cursor-pointer [&::-webkit-datetime-edit]:text-transparent [&::-webkit-calendar-picker-indicator]:opacity-100"
                     }
                     dir="ltr"
                 />
@@ -382,7 +382,6 @@ function DateField({
 
 const inputCls =
     "w-full px-4 py-2.5 bg-white dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700 focus:border-emerald-500 dark:focus:border-emerald-400 rounded-xl text-sm font-bold text-zinc-900 dark:text-zinc-100 focus:outline-none transition-colors placeholder:text-zinc-300 dark:placeholder:text-zinc-600 focus:ring-2 focus:ring-emerald-500/10 dark:focus:ring-emerald-400/10";
-
 // ─── الصفحة الرئيسية ──────────────────────────────────────────────────────────
 export default function Edit({
     customer,
@@ -414,11 +413,11 @@ export default function Edit({
         mrz: customer.mrz || "",
         national_id: customer.national_id || "",
         visa_number: customer.visa_number || "",
-        e_number: customer.e_number || "",
-        medical_status: customer.medical_status || "booked",
-        medical_token: customer.medical_token || "",
-        lab_status: customer.lab_status || "booked",
-        enet_status: customer.enet_status || "not_booked",
+        // e_number: customer.e_number || "",
+        // medical_status: customer.medical_status || "booked",
+        // medical_token: customer.medical_token || "",
+        // lab_status: customer.lab_status || "booked",
+        // enet_status: customer.enet_status || "not_booked",
         notes: customer.notes || "",
         delegate_id: current_delegate_id || "",
         passport_image: null,
@@ -528,7 +527,9 @@ export default function Edit({
                                                             | "",
                                                     )
                                                 }
-                                                className={inputCls}
+                                                className={
+                                                    inputCls + " text-center"
+                                                }
                                             >
                                                 <option value="">
                                                     اختر الجنس
@@ -574,7 +575,9 @@ export default function Edit({
                                                         e.target.value,
                                                     )
                                                 }
-                                                className={inputCls}
+                                                className={
+                                                    inputCls + " text-center"
+                                                }
                                             >
                                                 <option value="">
                                                     اختر الحالة
@@ -682,7 +685,9 @@ export default function Edit({
                                                         e.target.value,
                                                     )
                                                 }
-                                                className={inputCls}
+                                                className={
+                                                    inputCls + " text-center"
+                                                }
                                             >
                                                 <option value="">
                                                     -- بدون مندوب --
@@ -831,7 +836,7 @@ export default function Edit({
                                                 dir="ltr"
                                             />
                                         </Field>
-
+                                        {/* 
                                         <Field label="الرقم الإلكتروني (E-Number)">
                                             <input
                                                 type="text"
@@ -848,19 +853,18 @@ export default function Edit({
                                                 }
                                                 dir="ltr"
                                             />
-                                        </Field>
+                                        </Field> */}
                                     </div>
                                 </Section>
                             </div>
 
                             {/* الكشف الطبي والمعامل والنت */}
-                            <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-sm p-7 space-y-6">
+                            {/* <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-sm p-7 space-y-6">
                                 <Section
                                     icon={Stethoscope}
                                     title="الكشف الطبي والمعامل والنت"
                                 >
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                                        {/* الكشف الطبي */}
                                         <div className="space-y-3 p-4 bg-zinc-50 dark:bg-zinc-800/40 rounded-2xl border border-zinc-100 dark:border-zinc-800">
                                             <div className="flex items-center justify-between">
                                                 <p className="text-[10px] font-black tracking-widest uppercase text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5">
@@ -916,7 +920,6 @@ export default function Edit({
                                             </div>
                                         </div>
 
-                                        {/* المعامل */}
                                         <div className="space-y-3 p-4 bg-zinc-50 dark:bg-zinc-800/40 rounded-2xl border border-zinc-100 dark:border-zinc-800">
                                             <div className="flex items-center justify-between">
                                                 <p className="text-[10px] font-black tracking-widest uppercase text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5">
@@ -951,7 +954,6 @@ export default function Edit({
                                             </select>
                                         </div>
 
-                                        {/* النت */}
                                         <div className="space-y-3 p-4 bg-zinc-50 dark:bg-zinc-800/40 rounded-2xl border border-zinc-100 dark:border-zinc-800">
                                             <div className="flex items-center justify-between">
                                                 <p className="text-[10px] font-black tracking-widest uppercase text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5">
@@ -984,7 +986,7 @@ export default function Edit({
                                         </div>
                                     </div>
                                 </Section>
-                            </div>
+                            </div> */}
 
                             {/* ملاحظات */}
                             <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-sm p-7">

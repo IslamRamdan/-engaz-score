@@ -33,4 +33,9 @@ class Company extends Model
     {
         return $this->hasMany(Delegate::class);
     }
+    // جوة موديل Company.php
+    public function bags()
+    {
+        return $this->hasMany(Bag::class);
+    }
 }

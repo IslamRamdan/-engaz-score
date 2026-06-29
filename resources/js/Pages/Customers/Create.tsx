@@ -309,7 +309,9 @@ export default function Create({ delegates = [] }: Props) {
                                                         e.target.value,
                                                     )
                                                 }
-                                                className={inputCls}
+                                                className={
+                                                    inputCls + " text-center"
+                                                }
                                             >
                                                 <option value="">
                                                     اختر الجنس
@@ -335,7 +337,7 @@ export default function Create({ delegates = [] }: Props) {
                                                     }
                                                     className={
                                                         inputCls +
-                                                        " text-transparent dark:text-transparent caret-transparent cursor-pointer"
+                                                        " text-transparent dark:text-transparent caret-transparent cursor-pointer [&::-webkit-datetime-edit]:text-transparent [&::-webkit-calendar-picker-indicator]:opacity-100"
                                                     }
                                                     dir="ltr"
                                                 />
@@ -454,7 +456,9 @@ export default function Create({ delegates = [] }: Props) {
                                                         e.target.value,
                                                     )
                                                 }
-                                                className={inputCls}
+                                                className={
+                                                    inputCls + " text-center"
+                                                }
                                             >
                                                 <option value="">
                                                     -- اختر المندوب --
@@ -512,10 +516,11 @@ export default function Create({ delegates = [] }: Props) {
                                                     }
                                                     className={
                                                         inputCls +
-                                                        " text-transparent dark:text-transparent caret-transparent cursor-pointer"
+                                                        " text-transparent dark:text-transparent caret-transparent cursor-pointer [&::-webkit-datetime-edit]:text-transparent [&::-webkit-calendar-picker-indicator]:opacity-100"
                                                     }
                                                     dir="ltr"
                                                 />
+                                                {/* عرض التنسيق dd/mm/yyyy فوق الحقل */}
                                                 <span className="absolute inset-y-0 left-4 flex items-center text-sm font-bold text-zinc-900 dark:text-zinc-100 pointer-events-none select-none">
                                                     {data.passport_issue_date ? (
                                                         toDisplay(
@@ -544,10 +549,11 @@ export default function Create({ delegates = [] }: Props) {
                                                     }
                                                     className={
                                                         inputCls +
-                                                        " text-transparent dark:text-transparent caret-transparent cursor-pointer"
+                                                        " text-transparent dark:text-transparent caret-transparent cursor-pointer [&::-webkit-datetime-edit]:text-transparent [&::-webkit-calendar-picker-indicator]:opacity-100"
                                                     }
                                                     dir="ltr"
                                                 />
+                                                {/* عرض التنسيق dd/mm/yyyy فوق الحقل */}
                                                 <span className="absolute inset-y-0 left-4 flex items-center text-sm font-bold text-zinc-900 dark:text-zinc-100 pointer-events-none select-none">
                                                     {data.passport_expiry_date ? (
                                                         toDisplay(

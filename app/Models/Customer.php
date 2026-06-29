@@ -150,4 +150,11 @@ class Customer extends Model
             ->withPivot(['medical_status', 'medical_token', 'lab_status', 'enet_status', 'e_number'])
             ->withTimestamps();
     }
+    /**
+     * جلب جميع الحقائب التي ينتمي إليها هذا العميل
+     */
+    public function bags()
+    {
+        return $this->belongsToMany(Bag::class, 'bag_customer')->withTimestamps();
+    }
 }
