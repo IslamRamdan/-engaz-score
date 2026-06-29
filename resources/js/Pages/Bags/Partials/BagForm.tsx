@@ -19,6 +19,7 @@ export default function BagForm({ isOpen, onClose, bag }: BagFormProps) {
         useForm({
             name: "",
             consulate_entry_date: "",
+            make: "",
         });
 
     // مراقبة تغيير الـ bag (تعديل أو إضافة جديدة) لملء البيانات
