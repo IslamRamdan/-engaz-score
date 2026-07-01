@@ -28,7 +28,7 @@ interface Group {
     id: number;
     name: string;
     visa?: Visa; // علاقة التأشيرة داخل المجموعة كما أرسلتها من الكنترولر
-    notes: Number;
+    notes: number;
     customers?: Customer[]; // مصفوفة العملاء المشحونة // هنا تتواجد بيانات الجدول الوسيط
 }
 
@@ -80,7 +80,8 @@ export const NetReservation: React.FC<NetReservationProps> = ({
         passport_type: "عادي",
         gender: customer.gender === "female" ? "أنثى" : "ذكر",
         passport_expiry:
-            customer.passport_expiry_date?.split("T")[0] || "غير متوفر",
+            customer.passport_expiry_date?.toISOString().split("T")[0] ||
+            "غير متوفر",
         embassy_title: group.visa?.consulate || "غير متوفر",
         visa_period:
             {
@@ -130,7 +131,8 @@ export const NetReservation: React.FC<NetReservationProps> = ({
             jobs.find((j: any) => j.Value === group.notes)?.Text ||
             group.notes ||
             "---",
-        date_birth: customer.birth_date?.split("T")[0] || "غير متوفر",
+        date_birth:
+            customer.birth_date?.toISOString().split("T")[0] || "غير متوفر",
         governorate_live: customer.governorate || "غير متوفر",
         nationality: "مصر",
         purpose:
