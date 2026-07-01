@@ -2,7 +2,14 @@ import { useState, useEffect } from "react";
 import Sidebar from "@/Components/Sidebar";
 import ThemeToggle from "@/Components/ThemeToggle";
 
-export default function AppLayout({ children }: { children: React.ReactNode }) {
+// تحديث الـ Props ليستقبل الكلاس الممرر من الخارج (className)
+export default function AppLayout({
+    children,
+    className = "",
+}: {
+    children: React.ReactNode;
+    className?: string;
+}) {
     // إدارة حالة الانكماش من الكومبوننت الأب لتحديث مساحة الشاشة بالكامل
     const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -21,16 +28,34 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
     return (
         <div
-            className="flex bg-zinc-50 dark:bg-zinc-900 min-h-screen text-zinc-900 dark:text-zinc-100 overflow-x-hidden transition-colors duration-300"
+            // دمج الـ className القادم من الخارج هنا
+            className={`flex bg-zinc-50 dark:bg-zinc-900 min-h-screen text-zinc-900 dark:text-zinc-100 overflow-x-hidden transition-colors duration-300 ${className}`}
             dir="rtl"
         >
+            {/* ستايل مخصص للطباعة داخل الـ Layout نفسه لضمان الفرز النظيف */}
+            <style>{`
+                @media print {
+                    /* إخفاء القائمة الجانبية وزر الوضع الليلي */
+                    .print\\:hidden, 
+                    aside, 
+                    .z-50 { 
+                        display: none !important; 
+                    }
+                    /* إلغاء أي حواف أو خلفيات غير ضرورية للمحتوى الرئيسي عند الطباعة */
+                    main {
+                        padding: 0 !important;
+                        margin: 0 !important;
+                        width: 100% !important;
+                    }
+                }
+            `}</style>
+
             {/* زر الوضع الليلي عائم أعلى اليسار لجميع صفحات لوحة التحكم */}
             <div className="absolute top-4 left-6 z-50">
                 <ThemeToggle className="bg-white shadow-sm dark:bg-zinc-800" />
             </div>
 
             {/* تمرير الحالات للسايد بار */}
-            {/* الـ Sidebar يستقبل isCollapsed فقط - setIsCollapsed تُدار داخلياً */}
             <Sidebar isCollapsed={isCollapsed} />
 
             {/* المحتوى الرئيسي يتمدد وينكمش بسلاسة بفضل الترانزيشن */}

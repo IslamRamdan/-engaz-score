@@ -842,9 +842,14 @@ export default function Show({
                                                                             الترشيح
                                                                         </a>
                                                                         <a
-                                                                            href={`/admin/vissa/${c.id}`}
-                                                                            target="_blank"
-                                                                            rel="noreferrer"
+                                                                            href={route(
+                                                                                "netReservation",
+                                                                                {
+                                                                                    customer:
+                                                                                        c.id,
+                                                                                    group: group.id,
+                                                                                },
+                                                                            )}
                                                                             className="flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-lg text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
                                                                         >
                                                                             <Printer className="w-4 h-4 text-zinc-400" />

@@ -507,7 +507,7 @@ export default function Index({ customers = [], groups = [] }: Props) {
                                         onChange={(e) =>
                                             setSelectedGroupId(e.target.value)
                                         }
-                                        className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm font-bold text-zinc-950 dark:text-zinc-50 focus:outline-none focus:border-emerald-500"
+                                        className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm font-bold text-zinc-950 dark:text-zinc-50 focus:outline-none focus:border-emerald-500 text-center"
                                     >
                                         <option value="">
                                             -- اختر من القائمة --

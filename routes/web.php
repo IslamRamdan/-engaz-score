@@ -14,7 +14,9 @@ use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Http\Controllers\BagController;
+use App\Http\Controllers\ReportController;
 use App\Models\Bag;
+use App\Models\Customer;
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
@@ -107,19 +109,17 @@ Route::middleware(['auth'])->group(function () {
     // تاريخ المندوبين لكل عميل
     Route::get('/customers/delegate/{id}', [CustomerController::class, 'delegate_history'])
         ->name('customer.delegate_history');
-
-    // اضافة عميل إلى مجموعة
-
 });
+
+// استخراج بيانات جواز السفر لكل عميل
+Route::post('/customers/extract-passport', [CustomerController::class, 'extractPassport'])
+    ->name('customers.extract-passport');
+
 
 Route::middleware(['auth', 'verified'])->group(function () {
 
-    // الروتس الأساسية للمجموعات (Index, Create, Store, Show, Edit, Update, Destroy)
-    // نستخدم apiResource إذا كنا نريد JSON فقط، لكن بما أننا نستخدم Inertia فـ resource هي الأنسب
     Route::resource('groups', GroupController::class);
 
-    // رووت خاص لمزامنة العملاء (إضافة/حذف عملاء من مجموعة)
-    // نضعه هنا لأننا سنحتاج ربما لصفحة React مخصصة للـ Sync
     Route::post('groups/{id}/sync-customers', [GroupController::class, 'syncCustomers'])
         ->name('groups.sync-customers');
 
@@ -129,7 +129,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/groups/{id}', [GroupController::class, 'show'])
         ->name('groups.show');
 
-    // روت لحذف عملاء من المجموعة
     Route::post(
         '/groups/{group}/customers/remove',
         [GroupController::class, 'removeCustomers']
@@ -145,17 +144,21 @@ Route::middleware(['auth', 'verified'])->group(function () {
 });
 
 
-Route::resource('bags', BagController::class);
-
 Route::middleware(['auth'])->group(function () {
-    // الروت الخاص بإضافة العملاء بكميات كبيرة إلى مجموعة أخرى
-    // Route::post('/groups/add-customers-bulk', [BagController::class, 'addCustomersBulk'])
-    //     ->name('groups.add-customers-bulk');
+    Route::resource('bags', BagController::class);
+
     Route::post('/bags/add-customers-bulk', [BagController::class, 'addCustomersBulk'])
         ->name('bags.add-customers-bulk');
 });
+
+
 Route::middleware(['auth'])->group(function () {
     Route::get('/bags/{bag}', [BagController::class, 'show'])->name('bags.show');
 });
+Route::middleware(['auth'])->group(function () {
+    Route::get('/net/{customer}/group/{group}', [ReportController::class, 'netReservation'])->name('netReservation')
+        ->middleware(['auth']);
+});
+
 
 require __DIR__ . '/auth.php';

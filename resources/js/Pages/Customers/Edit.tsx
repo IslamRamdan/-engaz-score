@@ -91,76 +91,29 @@ interface FormState {
     job_proof_image: File | null;
 }
 
+// ─── شكل رد استخراج بيانات الجواز من الـ API ─────────────────────────────────
+interface ExtractedPassportData {
+    name_ar?: string;
+    name_en?: string;
+    gender?: "male" | "female" | "";
+    birth_date?: string;
+    nationality?: string;
+    passport_number?: string;
+    passport_issue_date?: string;
+    passport_expiry_date?: string;
+    passport_issue_place?: string;
+    address?: string;
+    governorate?: string;
+    national_id?: string;
+    mrz?: string;
+}
+
 // ─── تحويل yyyy-mm-dd → dd/mm/yyyy للعرض ─────────────────────────────────────
 function toDisplay(iso: string) {
     if (!iso) return "";
     const [y, m, d] = iso.split("-");
     return `${d}/${m}/${y}`;
 }
-
-// ─── Badge الحالة ─────────────────────────────────────────────────────────────
-// function StatusBadge({
-//     value,
-//     type,
-// }: {
-//     value: string;
-//     type: "medical" | "lab" | "enet";
-// }) {
-//     const configs = {
-//         medical: {
-//             booked: {
-//                 label: "محجوز",
-//                 cls: "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300",
-//             },
-//             fit: {
-//                 label: "لائق",
-//                 cls: "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300",
-//             },
-//             unfit: {
-//                 label: "غير لائق",
-//                 cls: "bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300",
-//             },
-//         },
-//         lab: {
-//             booked: {
-//                 label: "محجوز",
-//                 cls: "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300",
-//             },
-//             positive: {
-//                 label: "إيجابي",
-//                 cls: "bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300",
-//             },
-//             negative: {
-//                 label: "سلبي",
-//                 cls: "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300",
-//             },
-//         },
-//         enet: {
-//             booked: {
-//                 label: "محجوز",
-//                 cls: "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300",
-//             },
-//             not_booked: {
-//                 label: "غير محجوز",
-//                 cls: "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400",
-//             },
-//         },
-//     } as const;
-
-//     const map = configs[type] as Record<string, { label: string; cls: string }>;
-//     const cfg = map[value] ?? {
-//         label: value,
-//         cls: "bg-zinc-100 text-zinc-500",
-//     };
-
-//     return (
-//         <span
-//             className={`inline-block text-[10px] font-black px-2 py-0.5 rounded-full ${cfg.cls}`}
-//         >
-//             {cfg.label}
-//         </span>
-//     );
-// }
 
 // ─── مكوّن صف الصورة ──────────────────────────────────────────────────────────
 function ImageRow({
@@ -426,6 +379,73 @@ export default function Edit({
         job_proof_image: null,
     });
 
+    // ─── حالة استخراج بيانات الجواز عبر الذكاء الاصطناعي ─────────────────────
+    const [extracting, setExtracting] = useState(false);
+    const [extractError, setExtractError] = useState<string | null>(null);
+
+    const extractPassportData = async (file: File) => {
+        setExtracting(true);
+        setExtractError(null);
+
+        try {
+            const formData = new FormData();
+            formData.append("passport_image", file);
+
+            const xsrfToken = decodeURIComponent(
+                document.cookie
+                    .split("; ")
+                    .find((row) => row.startsWith("XSRF-TOKEN="))
+                    ?.split("=")[1] || "",
+            );
+
+            const res = await fetch(
+                // @ts-ignore
+                route("customers.extract-passport"),
+                {
+                    method: "POST",
+                    headers: {
+                        "X-XSRF-TOKEN": xsrfToken, // التعديل الجوهري لحل خطأ 419
+                        Accept: "application/json",
+                    },
+                    body: formData,
+                },
+            );
+
+            const json = await res.json();
+
+            if (!res.ok) {
+                setExtractError(json.error || "فشل استخراج بيانات الجواز");
+                return;
+            }
+
+            const d: ExtractedPassportData = json.data ?? {};
+
+            setData((prev) => ({
+                ...prev,
+                name_ar: d.name_ar || prev.name_ar,
+                name_en: d.name_en || prev.name_en,
+                gender: (d.gender as "male" | "female" | "") || prev.gender,
+                birth_date: d.birth_date || prev.birth_date,
+                nationality: d.nationality || prev.nationality,
+                passport_number: d.passport_number || prev.passport_number,
+                passport_issue_date:
+                    d.passport_issue_date || prev.passport_issue_date,
+                passport_expiry_date:
+                    d.passport_expiry_date || prev.passport_expiry_date,
+                passport_issue_place:
+                    d.passport_issue_place || prev.passport_issue_place,
+                address: d.address || prev.address,
+                governorate: d.governorate || prev.governorate,
+                national_id: d.national_id || prev.national_id,
+                mrz: d.mrz || prev.mrz,
+            }));
+        } catch (err) {
+            setExtractError("حدث خطأ أثناء الاتصال بخدمة الاستخراج");
+        } finally {
+            setExtracting(false);
+        }
+    };
+
     const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
         // @ts-ignore
@@ -481,7 +501,7 @@ export default function Edit({
                                             label="الاسم الكامل بالعربية"
                                             required
                                             error={errors.name_ar}
-                                            className="md:col-span-2"
+                                            className="md:col-span-1"
                                         >
                                             <input
                                                 type="text"
@@ -497,7 +517,10 @@ export default function Edit({
                                             />
                                         </Field>
 
-                                        <Field label="الاسم بالإنجليزية">
+                                        <Field
+                                            label="الاسم بالإنجليزية"
+                                            className="md:col-span-2"
+                                        >
                                             <input
                                                 type="text"
                                                 value={data.name_en}
@@ -607,7 +630,10 @@ export default function Edit({
                                     title="الاتصال ومقر السكن"
                                 >
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
-                                        <Field label="رقم الهاتف">
+                                        <Field
+                                            label="رقم الهاتف"
+                                            error={errors.phone}
+                                        >
                                             <input
                                                 type="text"
                                                 value={data.phone}
@@ -625,7 +651,10 @@ export default function Edit({
                                             />
                                         </Field>
 
-                                        <Field label="رقم الواتساب">
+                                        <Field
+                                            label="رقم الواتساب"
+                                            error={errors.whatsapp}
+                                        >
                                             <input
                                                 type="text"
                                                 value={data.whatsapp}
@@ -657,22 +686,6 @@ export default function Edit({
                                                 placeholder="المحافظة الحالية..."
                                             />
                                         </Field>
-
-                                        <Field label="العنوان بالتفصيل">
-                                            <input
-                                                type="text"
-                                                value={data.address}
-                                                onChange={(e) =>
-                                                    setData(
-                                                        "address",
-                                                        e.target.value,
-                                                    )
-                                                }
-                                                className={inputCls}
-                                                placeholder="المدينة، الشارع..."
-                                            />
-                                        </Field>
-
                                         <Field
                                             label="المندوب المسؤول"
                                             error={errors.delegate_id}
@@ -702,6 +715,24 @@ export default function Edit({
                                                 ))}
                                             </select>
                                         </Field>
+
+                                        <Field
+                                            label="العنوان بالتفصيل"
+                                            className="md:col-span-2"
+                                        >
+                                            <input
+                                                type="text"
+                                                value={data.address}
+                                                onChange={(e) =>
+                                                    setData(
+                                                        "address",
+                                                        e.target.value,
+                                                    )
+                                                }
+                                                className={inputCls}
+                                                placeholder="المدينة، الشارع..."
+                                            />
+                                        </Field>
                                     </div>
                                 </Section>
                             </div>
@@ -713,7 +744,10 @@ export default function Edit({
                                     title="وثائق السفر والهوية الوطنية"
                                 >
                                     <div className="grid grid-cols-2 md:grid-cols-3 gap-5">
-                                        <Field label="رقم جواز السفر">
+                                        <Field
+                                            label="رقم جواز السفر"
+                                            error={errors.passport_number}
+                                        >
                                             <input
                                                 type="text"
                                                 value={data.passport_number}
@@ -772,7 +806,10 @@ export default function Edit({
                                             />
                                         </Field>
 
-                                        <Field label="الرقم القومي / الهوية">
+                                        <Field
+                                            label="الرقم القومي / الهوية"
+                                            error={errors.national_id}
+                                        >
                                             <input
                                                 type="text"
                                                 value={data.national_id}
@@ -1005,18 +1042,18 @@ export default function Edit({
                         </div>
 
                         {/* ◀ العمود الأيسر */}
-                        <div className="w-72 shrink-0 space-y-5 sticky top-6">
+                        <div className="w-80 shrink-0 space-y-6 sticky top-6">
                             {/* بطاقة الصور */}
-                            <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-sm p-5">
-                                <div className="flex items-center gap-2.5 mb-4 pb-3 border-b border-zinc-100 dark:border-zinc-800">
-                                    <div className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center shrink-0">
-                                        <FileImage className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                            <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-sm p-6">
+                                <div className="flex items-center gap-3 mb-5 pb-4 border-b border-zinc-100 dark:border-zinc-800">
+                                    <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center shrink-0">
+                                        <FileImage className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                                     </div>
-                                    <h3 className="text-[11px] font-black tracking-widest uppercase text-emerald-700 dark:text-emerald-400">
+                                    <h3 className="text-xs font-black tracking-widest uppercase text-emerald-700 dark:text-emerald-400">
                                         الوثائق والمرفقات
                                     </h3>
                                 </div>
-                                <div className="space-y-2">
+                                <div className="space-y-3">
                                     <ImageRow
                                         label="الصورة الشخصية"
                                         current={customer.personal_image}
@@ -1027,16 +1064,55 @@ export default function Edit({
                                         error={errors.personal_image}
                                         icon={User}
                                     />
+
                                     <ImageRow
                                         label="صورة جواز السفر"
                                         current={customer.passport_image}
                                         value={data.passport_image}
-                                        onChange={(f) =>
-                                            setData("passport_image", f)
-                                        }
+                                        onChange={(f) => {
+                                            setData("passport_image", f);
+                                            if (
+                                                f &&
+                                                f.type.startsWith("image/")
+                                            ) {
+                                                extractPassportData(f);
+                                            }
+                                        }}
                                         error={errors.passport_image}
                                         icon={FileImage}
                                     />
+
+                                    {/* حالة استخراج بيانات الجواز */}
+                                    {extracting && (
+                                        <div className="flex items-center gap-2.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl px-3 py-2.5">
+                                            <svg
+                                                className="animate-spin h-4 w-4 shrink-0"
+                                                fill="none"
+                                                viewBox="0 0 24 24"
+                                            >
+                                                <circle
+                                                    className="opacity-25"
+                                                    cx="12"
+                                                    cy="12"
+                                                    r="10"
+                                                    stroke="currentColor"
+                                                    strokeWidth="4"
+                                                />
+                                                <path
+                                                    className="opacity-75"
+                                                    fill="currentColor"
+                                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                                />
+                                            </svg>
+                                            جاري استخراج البيانات من الجواز...
+                                        </div>
+                                    )}
+                                    {extractError && (
+                                        <div className="flex items-center gap-2.5 text-xs font-bold text-red-500 bg-red-50 dark:bg-red-900/20 rounded-xl px-3 py-2.5">
+                                            {extractError}
+                                        </div>
+                                    )}
+
                                     <ImageRow
                                         label="بطاقة الهوية الوطنية"
                                         current={customer.national_id_image}
@@ -1061,11 +1137,11 @@ export default function Edit({
                             </div>
 
                             {/* بطاقة الحفظ */}
-                            <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-sm p-5 space-y-3">
+                            <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-sm p-6 space-y-3.5">
                                 <button
                                     type="submit"
                                     disabled={processing}
-                                    className="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-2xl font-black text-sm transition-all shadow-sm disabled:opacity-50 cursor-pointer"
+                                    className="w-full inline-flex items-center justify-center gap-2 px-6 py-4 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-2xl font-black text-sm transition-all shadow-sm shadow-emerald-600/20 disabled:opacity-50 cursor-pointer"
                                 >
                                     {processing ? (
                                         <>
@@ -1098,12 +1174,12 @@ export default function Edit({
                                 <Link
                                     // @ts-ignore
                                     href={route("customers.index")}
-                                    className="w-full block text-center px-6 py-3 bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 font-bold rounded-2xl hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all text-sm"
+                                    className="w-full block text-center px-6 py-3.5 bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 font-bold rounded-2xl hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all text-sm"
                                 >
                                     تراجع والإلغاء
                                 </Link>
 
-                                <p className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 leading-relaxed pt-1 border-t border-zinc-100 dark:border-zinc-800">
+                                <p className="text-[11px] font-bold text-zinc-400 dark:text-zinc-500 leading-relaxed pt-2 border-t border-zinc-100 dark:border-zinc-800">
                                     ✓ سيتم تخزين الملفات المرفقة في الخادم مع
                                     توثيق تاريخ ربط المندوب فوراً.
                                 </p>

@@ -14,6 +14,8 @@ import {
     User,
     FileImage,
     X,
+    Sparkles,
+    Loader2,
 } from "lucide-react";
 
 interface Delegate {
@@ -203,6 +205,76 @@ export default function Create({ delegates = [] }: Props) {
         delegate_id: "",
     });
 
+    // ─── حالة استخراج بيانات الجواز عبر Gemini ──────────────────────────
+    const [isExtracting, setIsExtracting] = useState(false);
+    const [extractError, setExtractError] = useState<string | null>(null);
+
+    const handleExtractPassport = async () => {
+        if (!data.passport_image) return;
+
+        setIsExtracting(true);
+        setExtractError(null);
+
+        try {
+            const formData = new FormData();
+            formData.append("passport_image", data.passport_image);
+
+            // 1. جلب التوكن المفرود تلقائياً من الكوكيز بواسطة Inertia
+            const xsrfToken = decodeURIComponent(
+                document.cookie
+                    .split("; ")
+                    .find((row) => row.startsWith("XSRF-TOKEN="))
+                    ?.split("=")[1] || "",
+            );
+
+            // 2. إرسال الطلب عبر fetch مع الهيدر الصحيح المدعوم من لارافيل
+            const res = await fetch(route("customers.extract-passport"), {
+                method: "POST",
+                headers: {
+                    "X-XSRF-TOKEN": xsrfToken, // التعديل الجوهري لحل خطأ 419
+                    Accept: "application/json",
+                },
+                body: formData,
+            });
+
+            const json = await res.json();
+
+            if (!res.ok) {
+                setExtractError(json.error || "فشل استخراج البيانات");
+                return;
+            }
+
+            const p = json.data || {};
+            console.log(p);
+
+            // تعبئة الحقول مع الحفاظ على البيانات المدخلة مسبقاً في حال كان الحقل المرجوع فارغاً
+            setData((prev) => ({
+                ...prev,
+                name_ar: p.name_ar || prev.name_ar,
+                name_en: p.name_en || prev.name_en,
+                gender: p.gender || prev.gender,
+                birth_date: p.birth_date || prev.birth_date,
+                nationality: p.nationality || prev.nationality,
+                passport_number: p.passport_number || prev.passport_number,
+                passport_issue_date:
+                    p.passport_issue_date || prev.passport_issue_date,
+                passport_expiry_date:
+                    p.passport_expiry_date || prev.passport_expiry_date,
+                passport_issue_place:
+                    p.passport_issue_place || prev.passport_issue_place,
+                mrz: p.mrz || prev.mrz,
+                address: p.address || prev.address,
+                governorate: p.governorate || prev.governorate,
+                national_id: p.national_id || prev.national_id,
+            }));
+        } catch (err) {
+            console.error(err);
+            setExtractError("حدث خطأ أثناء الاتصال بخدمة الاستخراج");
+        } finally {
+            setIsExtracting(false);
+        }
+    };
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         post(route("customers.store"), {
@@ -210,6 +282,14 @@ export default function Create({ delegates = [] }: Props) {
             onSuccess: () => reset(),
         });
     };
+
+    // const handleSubmit = (e: React.FormEvent) => {
+    //     e.preventDefault();
+    //     post(route("customers.store"), {
+    //         forceFormData: true,
+    //         onSuccess: () => reset(),
+    //     });
+    // };
 
     return (
         <>
@@ -267,7 +347,7 @@ export default function Create({ delegates = [] }: Props) {
                                             label="الاسم الكامل بالعربية"
                                             required
                                             error={errors.name_ar}
-                                            className="md:col-span-2"
+                                            className="md:col-span-1"
                                         >
                                             <input
                                                 type="text"
@@ -283,7 +363,10 @@ export default function Create({ delegates = [] }: Props) {
                                                 placeholder="الاسم الرباعي كما في المستندات..."
                                             />
                                         </Field>
-                                        <Field label="الاسم بالإنكليزية">
+                                        <Field
+                                            label="الاسم بالإنكليزية"
+                                            className="md:col-span-2"
+                                        >
                                             <input
                                                 type="text"
                                                 value={data.name_en}
@@ -380,66 +463,55 @@ export default function Create({ delegates = [] }: Props) {
                                     title="الاتصال ومقر السكن"
                                 >
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
-                                        <Field label="رقم الهاتف">
+                                        <Field
+                                            label="رقم الهاتف"
+                                            error={errors.phone}
+                                        >
                                             <input
                                                 type="text"
                                                 value={data.phone}
-                                                onChange={(e) =>
-                                                    setData(
-                                                        "phone",
-                                                        e.target.value,
-                                                    )
-                                                }
+                                                required
+                                                maxLength={11} // يمنع كتابة أكثر من 11 حرف/رقم نهائياً
+                                                onChange={(e) => {
+                                                    // قبول الأرقام فقط وتجاهل الحروف والرموز
+                                                    const value =
+                                                        e.target.value.replace(
+                                                            /\D/g,
+                                                            "",
+                                                        );
+                                                    setData("phone", value);
+                                                }}
                                                 className={
                                                     inputCls + " text-left"
                                                 }
                                                 dir="ltr"
-                                                placeholder="05xxxxxxxx"
+                                                placeholder="01xxxxxxxx"
                                             />
                                         </Field>
-                                        <Field label="رقم الواتساب">
+
+                                        <Field
+                                            label="رقم الواتساب"
+                                            error={errors.whatsapp}
+                                        >
                                             <input
                                                 type="text"
+                                                required
                                                 value={data.whatsapp}
-                                                onChange={(e) =>
-                                                    setData(
-                                                        "whatsapp",
-                                                        e.target.value,
-                                                    )
-                                                }
+                                                maxLength={11} // يمنع كتابة أكثر من 11 حرف/رقم نهائياً
+                                                onChange={(e) => {
+                                                    // قبول الأرقام فقط وتجاهل الحروف والرموز
+                                                    const value =
+                                                        e.target.value.replace(
+                                                            /\D/g,
+                                                            "",
+                                                        );
+                                                    setData("whatsapp", value);
+                                                }}
                                                 className={
                                                     inputCls + " text-left"
                                                 }
                                                 dir="ltr"
-                                                placeholder="05xxxxxxxx"
-                                            />
-                                        </Field>
-                                        <Field label="المحافظة">
-                                            <input
-                                                type="text"
-                                                value={data.governorate}
-                                                onChange={(e) =>
-                                                    setData(
-                                                        "governorate",
-                                                        e.target.value,
-                                                    )
-                                                }
-                                                className={inputCls}
-                                                placeholder="المحافظة الحالية..."
-                                            />
-                                        </Field>
-                                        <Field label="العنوان بالتفصيل">
-                                            <input
-                                                type="text"
-                                                value={data.address}
-                                                onChange={(e) =>
-                                                    setData(
-                                                        "address",
-                                                        e.target.value,
-                                                    )
-                                                }
-                                                className={inputCls}
-                                                placeholder="المدينة، الشارع..."
+                                                placeholder="01xxxxxxxx"
                                             />
                                         </Field>
                                         <Field
@@ -473,6 +545,38 @@ export default function Create({ delegates = [] }: Props) {
                                                 ))}
                                             </select>
                                         </Field>
+                                        <Field label="المحافظة">
+                                            <input
+                                                type="text"
+                                                value={data.governorate}
+                                                onChange={(e) =>
+                                                    setData(
+                                                        "governorate",
+                                                        e.target.value,
+                                                    )
+                                                }
+                                                className={inputCls}
+                                                placeholder="المحافظة الحالية..."
+                                            />
+                                        </Field>
+
+                                        <Field
+                                            label="العنوان بالتفصيل"
+                                            className="md:col-span-2"
+                                        >
+                                            <input
+                                                type="text"
+                                                value={data.address}
+                                                onChange={(e) =>
+                                                    setData(
+                                                        "address",
+                                                        e.target.value,
+                                                    )
+                                                }
+                                                className={inputCls}
+                                                placeholder="المدينة، الشارع..."
+                                            />
+                                        </Field>
                                     </div>
                                 </Section>
                             </div>
@@ -498,7 +602,7 @@ export default function Create({ delegates = [] }: Props) {
                                                     inputCls + " text-left"
                                                 }
                                                 dir="ltr"
-                                                placeholder="N00000000"
+                                                placeholder="A00000000"
                                             />
                                         </Field>
                                         <Field label="تاريخ الإصدار">
@@ -567,10 +671,11 @@ export default function Create({ delegates = [] }: Props) {
                                                 </span>
                                             </div>
                                         </Field>
-                                        <Field label="الرقم الوطني">
+                                        <Field label="الرقم القومي">
                                             <input
                                                 type="text"
                                                 value={data.national_id}
+                                                maxLength={14}
                                                 onChange={(e) =>
                                                     setData(
                                                         "national_id",
@@ -581,7 +686,7 @@ export default function Create({ delegates = [] }: Props) {
                                                     inputCls + " text-left"
                                                 }
                                                 dir="ltr"
-                                                placeholder="الهوية الوطنية..."
+                                                placeholder="الرقم القومي ..."
                                             />
                                         </Field>
                                         <Field
@@ -634,16 +739,49 @@ export default function Create({ delegates = [] }: Props) {
                                     icon={User}
                                 />
 
-                                <ImageUploadField
-                                    label="صورة جواز السفر"
-                                    field="passport_image"
-                                    value={data.passport_image}
-                                    onChange={(file) =>
-                                        setData("passport_image", file)
-                                    }
-                                    error={errors.passport_image}
-                                    icon={FileImage}
-                                />
+                                {/* صورة جواز السفر + زر الاستخراج بالذكاء الاصطناعي */}
+                                <div className="space-y-2">
+                                    <ImageUploadField
+                                        label="صورة جواز السفر"
+                                        field="passport_image"
+                                        value={data.passport_image}
+                                        onChange={(file) => {
+                                            setData("passport_image", file);
+                                            setExtractError(null);
+                                        }}
+                                        error={errors.passport_image}
+                                        icon={FileImage}
+                                    />
+
+                                    {data.passport_image && (
+                                        <div className="space-y-2">
+                                            <button
+                                                type="button"
+                                                onClick={handleExtractPassport}
+                                                disabled={isExtracting}
+                                                className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 bg-emerald-50 dark:bg-emerald-900/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-400 rounded-xl text-[11px] font-black transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                {isExtracting ? (
+                                                    <>
+                                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                                        جاري استخراج البيانات...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Sparkles className="w-3.5 h-3.5" />
+                                                        استخراج البيانات
+                                                        تلقائيًا (AI)
+                                                    </>
+                                                )}
+                                            </button>
+                                            {extractError && (
+                                                <p className="text-red-500 text-[10px] font-bold text-center">
+                                                    {extractError}
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
 
                                 <ImageUploadField
                                     label="صورة الهوية الوطنية"
