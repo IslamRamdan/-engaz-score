@@ -130,9 +130,10 @@ class GroupController extends Controller
         $companyId = Auth::user()->company_id;
         $group = Group::where('company_id', $companyId)->findOrFail($id);
 
-        $group->customers()->sync($request->customer_ids);
+        // التعديل هنا: استخدام syncWithoutDetaching بدلاً من sync
+        $group->customers()->syncWithoutDetaching($request->customer_ids);
 
-        return redirect()->back()->with('success', 'تم تحديث قائمة عملاء المجموعة بنجاح.');
+        return redirect()->back()->with('success', 'تم إضافة العملاء إلى المجموعة بنجاح.');
     }
 
     public function addCustomers(Request $request, $groupId)

@@ -14,6 +14,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Http\Controllers\BagController;
+use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\ReportController;
 use App\Models\Bag;
 use App\Models\Customer;
@@ -158,6 +159,23 @@ Route::middleware(['auth'])->group(function () {
 Route::middleware(['auth'])->group(function () {
     Route::get('/net/{customer}/group/{group}', [ReportController::class, 'netReservation'])->name('netReservation')
         ->middleware(['auth']);
+});
+
+
+// تأكد من وضع الروتس داخل الـ middleware الخاص بالحماية لضمان أن المستخدم مسجل دخوله
+Route::middleware(['auth'])->group(function () {
+
+    // 1. عرض صفحة جدول الموظفين الرئيسية
+    Route::get('/employees', [EmployeeController::class, 'index'])->name('employees.index');
+
+    // 2. استقبال بيانات الموظف الجديد وحفظها (POST)
+    Route::post('/employees', [EmployeeController::class, 'store'])->name('employees.store');
+
+    // 3. تحديث بيانات موظف الحالي عبر الـ ID (PUT)
+    Route::put('/employees/{id}', [EmployeeController::class, 'update'])->name('employees.update');
+
+    // 4. حذف موظف من النظام عبر الـ ID (DELETE)
+    Route::delete('/employees/{id}', [EmployeeController::class, 'destroy'])->name('employees.destroy');
 });
 
 

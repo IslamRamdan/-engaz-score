@@ -45,6 +45,7 @@ export default function Sidebar({
         { href: "/customers", label: "العملاء", icon: "👤", hasDot: true }, // مستخدم مفرد يمثل العميل
         { href: "/groups", label: "المجموعات", icon: "👥", hasDot: true }, // مستخدمين متعددين يمثلون المجموعة
         { href: "/bags", label: "الحقائب", icon: "🧳", hasDot: true }, // حقيبة سفر تمثل الحقائب أو الأمتعة
+        { href: "/employees", label: "الموظفين", icon: "👨‍💼", hasDot: true }, // موظف يمثل الموظف
     ];
 
     return (
