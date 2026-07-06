@@ -27,6 +27,8 @@
         "vite": "^7.0.7"
     },
     "dependencies": {
-        "lucide-react": "^1.17.0"
+        "lucide-react": "^1.17.0",
+        "react-easy-crop": "^6.1.0",
+        "sweetalert2": "^11.26.25"
     }
 }

@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import { useForm } from "@inertiajs/react";
 
-// تعريف أنواع البيانات للموظف المتوافقة مع الهوية وقاعدة البيانات
+// 1. تحديث نوع البيانات لتشمل حقول منصة إنجاز الجديدة
 interface Employee {
     id: number;
     name: string;
@@ -9,6 +9,8 @@ interface Employee {
     phone: string | null;
     is_active: boolean | number;
     role: "owner" | "admin" | "employee";
+    engaz_email: string | null; // تمت الإضافة هنا
+    engaz_password: string | null; // تمت الإضافة هنا
 }
 
 interface Props {
@@ -24,7 +26,7 @@ export default function EmployeeForm({
     employee,
     roles = {},
 }: Props) {
-    // إعداد حقول النموذج بالقيم الافتراضية
+    // 2. إعداد الحقول بالقيم الافتراضية لمنع مشاكل الـ Uncontrolled Inputs
     const { data, setData, post, put, processing, errors, reset, clearErrors } =
         useForm({
             name: "",
@@ -34,9 +36,11 @@ export default function EmployeeForm({
             password_confirmation: "",
             is_active: true,
             role: "employee", // القيمة الافتراضية للـ enum عند الإضافة
+            engaz_email: "", // تمت الإضافة هنا
+            engaz_password: "", // تمت الإضافة هنا
         });
 
-    // مراقبة فتح المودال لتعبئة البيانات في حال التعديل أو تصفيرها للجديد
+    // 3. مراقبة فتح المودال لتعبئة البيانات الجديدة في حال التعديل
     useEffect(() => {
         if (employee) {
             setData({
@@ -47,6 +51,8 @@ export default function EmployeeForm({
                 password_confirmation: "",
                 is_active: Boolean(employee.is_active),
                 role: employee.role,
+                engaz_email: employee.engaz_email || "", // تمت الإضافة هنا
+                engaz_password: employee.engaz_password || "", // تمت الإضافة هنا
             });
         } else {
             reset();
@@ -154,6 +160,54 @@ export default function EmployeeForm({
                         )}
                     </div>
 
+                    {/* ================= قسم حقول إنجاز الجديدة ================= */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-y border-zinc-100 dark:border-zinc-800/50 py-4 my-2">
+                        {/* بريد إنجاز الإلكتروني */}
+                        <div>
+                            <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1.5">
+                                بريد منصة إنجاز (engaz_email)
+                            </label>
+                            <input
+                                type="text"
+                                value={data.engaz_email}
+                                onChange={(e) =>
+                                    setData("engaz_email", e.target.value)
+                                }
+                                className={`w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-900 border rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:text-zinc-100 outline-none transition-all ${errors.engaz_email ? "border-red-500" : "border-zinc-200 dark:border-zinc-800"}`}
+                                placeholder="engaz.user"
+                                dir="ltr"
+                            />
+                            {errors.engaz_email && (
+                                <p className="text-red-500 text-xs mt-1 font-semibold">
+                                    {errors.engaz_email}
+                                </p>
+                            )}
+                        </div>
+
+                        {/* كلمة مرور إنجاز (نص عادي) */}
+                        <div>
+                            <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1.5">
+                                كلمة مرور منصة إنجاز (engaz_password)
+                            </label>
+                            <input
+                                type="text"
+                                value={data.engaz_password}
+                                onChange={(e) =>
+                                    setData("engaz_password", e.target.value)
+                                }
+                                className={`w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-900 border rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:text-zinc-100 outline-none transition-all ${errors.engaz_password ? "border-red-500" : "border-zinc-200 dark:border-zinc-800"}`}
+                                placeholder="كلمة المرور النصية"
+                                dir="ltr"
+                            />
+                            {errors.engaz_password && (
+                                <p className="text-red-500 text-xs mt-1 font-semibold">
+                                    {errors.engaz_password}
+                                </p>
+                            )}
+                        </div>
+                    </div>
+                    {/* ========================================================= */}
+
                     {/* رقم الجوال السعودي */}
                     <div>
                         <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1.5">
@@ -175,7 +229,7 @@ export default function EmployeeForm({
                         )}
                     </div>
 
-                    {/* مرتبة الصلاحية والدور - تم تثبيت الـ 3 صلاحيات هنا من السكيما مع الحماية */}
+                    {/* مرتبة الصلاحية والدور */}
                     <div>
                         <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1.5">
                             مرتبة الصلاحية بالنظام (الدور)
@@ -187,7 +241,6 @@ export default function EmployeeForm({
                             }
                             className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:text-zinc-100 outline-none transition-all cursor-pointer font-medium"
                         >
-                            {/* في حال تم تمرير ترجمة مخصصة للأدوار نستخدمها، وإلا يتم الاعتماد على الخيارات الثلاثة الثابتة بأمان لمنع خطأ undefined */}
                             {Object.entries(roles).length > 0 ? (
                                 Object.entries(roles).map(([key, label]) => (
                                     <option key={key} value={key}>
@@ -215,11 +268,11 @@ export default function EmployeeForm({
                         )}
                     </div>
 
-                    {/* حقول كلمة المرور وتأكيد الحماية */}
+                    {/* حقول كلمة المرور وتأكيد الحماية للنظام الأساسي */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1.5">
-                                كلمة المرور{" "}
+                                كلمة المرور الشخصية{" "}
                                 {employee && "(اتركها فارغة لعدم التغيير)"}
                             </label>
                             <input
@@ -239,7 +292,7 @@ export default function EmployeeForm({
                         </div>
                         <div>
                             <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1.5">
-                                تأكيد كلمة المرور
+                                تأكيد كلمة المرور الشخصية
                             </label>
                             <input
                                 type="password"

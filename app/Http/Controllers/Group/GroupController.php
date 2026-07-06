@@ -174,7 +174,6 @@ class GroupController extends Controller
         $id_number = $sponsor ? $sponsor->id_number : "غير متوفر";
         $issue_number = $visa ? $visa->issue_number : "غير متوفر";
 
-        // return $group->customers;
 
         return Inertia::render('Groups/Show', [
             'group' => $group,
@@ -184,6 +183,9 @@ class GroupController extends Controller
             'id_number' => $id_number,
             'job' => $group->notes,
             'bags' => Bag::select('id', 'name')->get(), // جلب كل الحقائب المتاحة
+            "user" => auth()->user(),
+            "visa" => $visa,
+            "sponsor" => $sponsor,
         ]);
     }
     public function removeCustomers(Request $request, Group $group)

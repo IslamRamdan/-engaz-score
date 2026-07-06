@@ -1,6 +1,7 @@
 import { useState } from "react";
 import AppLayout from "@/Layouts/AppLayout";
 import { Head, Link, router } from "@inertiajs/react";
+import Swal from "sweetalert2";
 import {
     Users,
     Phone,
@@ -8,7 +9,6 @@ import {
     ArrowRight,
     CheckSquare,
     Square,
-    Trash2,
     Copy,
     Download,
     X,
@@ -69,11 +69,15 @@ type Customer = {
     lab_status: LabStatus | null;
     enet_status: EnetStatus | null;
     pivot?: CustomerGroupPivot;
+    passport_issue_date: string | null;
+    governorate: string | null;
+    national_id: string | null;
 };
 
 type Group = {
     id: number;
     name: string;
+    notes: string | null;
 };
 
 type Props = {
@@ -84,6 +88,37 @@ type Props = {
     id_number: string;
     job: string;
     bags: Bag[]; // استقبال الحقائب هنا
+    user: {
+        id: number;
+        name: string;
+        email: string;
+        phone: string | null;
+        role: "owner" | "admin" | "employee";
+        is_active: boolean | number;
+        engaz_email: string | null;
+        engaz_password: string | null;
+        created_at: string;
+    };
+    visa: {
+        id: number;
+        company_id: number;
+        name: string;
+        type: string;
+        issue_number: string;
+        consulate?: string;
+        sponsor_id?: number; // المعرف الرقمي
+        sponsor_name: string; // الاسم النصي
+        id_number: string;
+        job: string;
+        issue_date_hijri?: string; // التاريخ الهجري
+    };
+    sponsor: {
+        id: number;
+        name: string;
+        id_number: string;
+        address: string;
+        country: string;
+    };
 };
 
 export default function Show({
@@ -93,6 +128,9 @@ export default function Show({
     issue_number,
     id_number,
     job,
+    user,
+    visa,
+    sponsor,
     bags = [],
 }: Props) {
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
@@ -281,6 +319,209 @@ export default function Show({
         zinc: "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700",
     };
 
+    // حجز النت
+    const handleNetReservation = async () => {
+        if (selectedIds.length === 0) return;
+
+        // جلب كائنات العملاء المحددين كاملة
+        const selectedCustomers = customers.filter((c) =>
+            selectedIds.includes(c.id),
+        );
+        console.log("العملاء المحددين لحجز النت:", selectedCustomers);
+
+        // مصفوفة لتجميع الأخطاء إن وجدت
+        let validationErrors: { customerName: string; fields: string[] }[] = [];
+
+        // فحص الأخطاء أولاً لجميع العملاء قبل البدء في الإرسال
+        selectedCustomers.forEach((customer) => {
+            let missingFields = [];
+            if (!user?.engaz_email) missingFields.push("بريد إنجاز للموظف");
+            if (!user?.engaz_password)
+                missingFields.push("كلمة مرور إنجاز للموظف");
+            if (!visa?.issue_number) missingFields.push("رقم مستند التأشيرة");
+            if (!customer.name_ar) missingFields.push("الاسم العربي للعميل");
+            if (!customer.name_en) missingFields.push("الاسم الإنجليزي للعميل");
+            if (!customer.passport_number) missingFields.push("رقم الجواز");
+            if (!customer.passport_issue_date)
+                missingFields.push("تاريخ إصدار الجواز");
+            if (!customer.passport_expiry_date)
+                missingFields.push("تاريخ انتهاء الجواز");
+            if (!customer.national_id)
+                missingFields.push("رقم الهوية الوطنية/الرقم القومي");
+            if (!sponsor?.name) missingFields.push("اسم الكفيل");
+
+            if (missingFields.length > 0) {
+                validationErrors.push({
+                    customerName:
+                        customer.name_ar ||
+                        customer.name_en ||
+                        `عميل رقم (${customer.id})`,
+                    fields: missingFields,
+                });
+            }
+        });
+
+        // إذا كانت هناك أخطاء، اعرض البوب أب الجميل الخاص بالأخطاء وتوقف
+        if (validationErrors.length > 0) {
+            let htmlContent = `<div style="text-align: right; direction: rtl; font-family: inherit;">`;
+            validationErrors.forEach((err) => {
+                htmlContent += `
+                <div style="margin-bottom: 15px; padding: 10px; border-right: 4px solid #ef4444; background-color: #fef2f2; border-radius: 4px;">
+                    <strong style="color: #b91c1c; display: block; margin-bottom: 5px;">👤 ${err.customerName}</strong>
+                    <span style="color: #374151; font-size: 0.95em;">${err.fields.join(" ، ")}</span>
+                </div>
+            `;
+            });
+            htmlContent += `</div>`;
+
+            Swal.fire({
+                title: "بيانات ناقصة!",
+                html: htmlContent,
+                icon: "error",
+                confirmButtonText: "موافق",
+                confirmButtonColor: "#3085d6",
+            });
+            return;
+        }
+
+        // استخدام حلقة for...of لضمان الإرسال بالترتيب (عميل تلو الآخر)
+        for (const customer of selectedCustomers) {
+            let NumberEntryDay = "90";
+            let ResidencyInKSA = "120";
+            const visaPeriod = visa?.type;
+
+            if (visaPeriod === "work_temp_hajj_umrah") {
+                NumberEntryDay = "90";
+                ResidencyInKSA = "120";
+            } else if (visaPeriod === "work") {
+                NumberEntryDay = "90";
+                ResidencyInKSA = "90";
+            } else if (visaPeriod === "temporary_work") {
+                NumberEntryDay = "365";
+                ResidencyInKSA = "90";
+            }
+
+            const nameParts = (customer.name_en || "").trim().split(/\s+/);
+
+            // بناء كائن البيانات للعميل الحالي
+            const data = {
+                email: user?.email || "",
+                group: group?.id || "",
+                customer_id: customer.id,
+                UserName: user.engaz_email,
+                Password: user.engaz_password,
+                VisaKind:
+                    {
+                        work_temp_hajj_umrah:
+                            "تأشيرة العمل المؤقت للحج والعمرة",
+                        work: "عمل",
+                        temporary_work: "عمل مؤقت",
+                    }[visa?.type] || "غير محدد",
+                DocumentNumber: visa?.issue_number,
+                NATIONALITY: "EGY",
+                ResidenceCountry: "272",
+                EmbassyCode: visa?.consulate || "غير محدد",
+                NumberOfEntries: "0",
+                NumberEntryDay: NumberEntryDay,
+                ResidencyInKSA: ResidencyInKSA,
+                imageUrl: `${window.location.origin}/storage/${customer.personal_image}`,
+                AFIRSTNAME: customer.name_ar,
+                AFATHER: customer.name_ar,
+                AGGRAND: customer.name_ar,
+                AFAMILY: customer.name_ar,
+                EFIRSTNAME: nameParts[0] || "",
+                EFATHER: nameParts.length > 2 ? nameParts[1] : "",
+                EGRAND: nameParts.length > 3 ? nameParts[2] : "",
+                EFAMILY:
+                    nameParts.length > 1 ? nameParts[nameParts.length - 1] : "",
+                PASSPORTnumber: customer.passport_number,
+                PASSPORType: "1",
+                PASSPORT_ISSUE_PLACE: "مصر",
+                PASSPORT_ISSUE_DATE: customer.passport_issue_date,
+                PASSPORT_EXPIRY_DATE: customer.passport_expiry_date,
+                BIRTH_PLACE: customer.governorate,
+                BIRTH_DATE: customer.birth_date,
+                PersonId: customer.national_id,
+                DEGREE: "-",
+                DEGREE_SOURCE: "-",
+                ADDRESS_HOME: "بحره",
+                Personal_Email: "erfa20045@gmail.com",
+                SPONSER_NAME: sponsor?.name,
+                SPONSER_NUMBER: sponsor?.id_number || "غير متوفر",
+                SPONSER_ADDRESS: sponsor?.address || "غير متوفر",
+                SPONSER_PHONE: "01228815901",
+                COMING_THROUGH: "2",
+                ENTRY_POINT: "1",
+                ExpectedEntryDate: new Date(
+                    new Date().setMonth(new Date().getMonth() + 2),
+                ).toLocaleDateString("en-GB"),
+                porpose: "",
+                car_number: "SV123",
+                RELIGION: "1",
+                SOCIAL_STATUS: "2",
+                Sex: customer.gender,
+                JOB_OR_RELATION_Id: group?.notes || "غير محدد",
+            };
+
+            // 💡 1. تشغيل بوب أب اللودينج هنا قبل بدء طلب الـ API للعميل الحالي
+            Swal.fire({
+                title: "جاري حجز النت...",
+                text: `يرجى الانتظار، يتم معالجة طلب العميل: ${customer.name_ar}`,
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showConfirmButton: false,
+                didOpen: () => {
+                    Swal.showLoading(); // تفعيل علامة التحميل (Spinner)
+                },
+            });
+
+            try {
+                const res = await fetch("http://localhost:3000/submit-all", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify(data),
+                });
+
+                let response = null;
+                try {
+                    response = await res.json();
+                } catch (e) {}
+
+                if (!res.ok) {
+                    throw new Error(`HTTP error! status: ${res.status}`);
+                }
+
+                // عند النجاح
+                await new Promise((resolve) => {
+                    Swal.fire({
+                        title: "نجحت العملية!",
+                        text: `تم إصدار طلب إنجاز للعميل: ${customer.name_ar}\nرقم الطلب: ${response?.appNo || "غير متوفر"}`,
+                        icon: "success",
+                        timer: 3000,
+                        timerProgressBar: true,
+                        showConfirmButton: false,
+                        didClose: () => resolve(true), // 💡 تم التعديل هنا
+                    });
+                });
+            } catch (error) {
+                // عند الفشل أو الخطأ
+                await new Promise((resolve) => {
+                    Swal.fire({
+                        title: "فشلت العملية!",
+                        text: `حدث خطأ أو لم يتم إصدار الطلب للعميل: ${customer.name_ar}`,
+                        icon: "error",
+                        timer: 3000,
+                        timerProgressBar: true,
+                        showConfirmButton: false,
+                        didClose: () => resolve(true), // 💡 تم التعديل هنا
+                    });
+                });
+            }
+        }
+    };
+
     const StatusBadge = ({
         label,
         color,
@@ -357,6 +598,13 @@ export default function Show({
                                     >
                                         <Archive className="w-4 h-4 text-emerald-500" />
                                         <span>إضافة إلى حقيبة</span>
+                                    </button>
+                                    <button
+                                        onClick={handleNetReservation}
+                                        className="w-full flex items-center gap-2 px-4 py-3 text-right text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors border-b border-zinc-100 dark:border-zinc-800"
+                                    >
+                                        <Archive className="w-4 h-4 text-emerald-500" />
+                                        <span>حجز نت</span>
                                     </button>
                                 </div>
                             )}

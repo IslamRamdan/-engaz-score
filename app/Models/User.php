@@ -26,6 +26,9 @@ class User extends Authenticatable
         'password',
         'role',
         'is_active',
+        'engaz_email',
+        'engaz_password',
+
     ];
 
     /**

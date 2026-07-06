@@ -1,6 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import AppLayout from "@/Layouts/AppLayout";
 import { Head, useForm, Link } from "@inertiajs/react";
+import Cropper from "react-easy-crop";
+import type { Area } from "react-easy-crop";
 import {
     UserPlus,
     ChevronLeft,
@@ -27,7 +29,171 @@ interface Props {
     delegates: Delegate[];
 }
 
-// ─── مكوّن حقل الرفع مع معاينة الصورة ───────────────────────────────────────
+// ─── دالة مساعدة: تحويل الاقتصاص لملف حقيقي ────────────────────────────
+async function getCroppedFile(
+    imageSrc: string,
+    croppedAreaPixels: Area,
+    fileName: string,
+    mimeType: string,
+): Promise<File> {
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = imageSrc;
+    });
+
+    const canvas = document.createElement("canvas");
+    canvas.width = croppedAreaPixels.width;
+    canvas.height = croppedAreaPixels.height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Canvas context not available");
+
+    ctx.drawImage(
+        image,
+        croppedAreaPixels.x,
+        croppedAreaPixels.y,
+        croppedAreaPixels.width,
+        croppedAreaPixels.height,
+        0,
+        0,
+        croppedAreaPixels.width,
+        croppedAreaPixels.height,
+    );
+
+    return new Promise((resolve, reject) => {
+        canvas.toBlob((blob) => {
+            if (!blob) {
+                reject(new Error("فشل إنشاء الصورة"));
+                return;
+            }
+            resolve(new File([blob], fileName, { type: mimeType }));
+        }, mimeType);
+    });
+}
+
+// ─── مودال الاقتصاص (react-easy-crop) ───────────────────────────────────
+function ImageCropModal({
+    file,
+    onCancel,
+    onConfirm,
+}: {
+    file: File;
+    onCancel: () => void;
+    onConfirm: (cropped: File) => void;
+}) {
+    const [imgUrl, setImgUrl] = useState<string>("");
+    const [crop, setCrop] = useState({ x: 0, y: 0 });
+    const [zoom, setZoom] = useState(1);
+    const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(
+        null,
+    );
+    const [isSaving, setIsSaving] = useState(false);
+
+    useEffect(() => {
+        const url = URL.createObjectURL(file);
+        setImgUrl(url);
+        return () => URL.revokeObjectURL(url);
+    }, [file]);
+
+    const onCropComplete = useCallback((_area: Area, areaPixels: Area) => {
+        setCroppedAreaPixels(areaPixels);
+    }, []);
+
+    const handleConfirm = async () => {
+        if (!croppedAreaPixels || !imgUrl) return;
+        setIsSaving(true);
+        try {
+            const croppedFile = await getCroppedFile(
+                imgUrl,
+                croppedAreaPixels,
+                file.name,
+                file.type || "image/png",
+            );
+            onConfirm(croppedFile);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    if (!imgUrl) return null;
+
+    return (
+        <div
+            className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-6"
+            onClick={onCancel}
+        >
+            <div
+                className="bg-white dark:bg-zinc-900 rounded-2xl p-5 space-y-4 max-w-2xl w-full"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <h3 className="text-sm font-black text-zinc-800 dark:text-zinc-100">
+                    اقتصاص الصورة
+                </h3>
+
+                {/* منطقة الكروب - لازم ارتفاع ثابت وposition relative */}
+                <div className="relative w-full h-[400px] bg-zinc-900 rounded-xl overflow-hidden">
+                    <Cropper
+                        image={imgUrl}
+                        crop={crop}
+                        zoom={zoom}
+                        aspect={1}
+                        onCropChange={setCrop}
+                        onZoomChange={setZoom}
+                        onCropComplete={onCropComplete}
+                    />
+                </div>
+
+                {/* شريط التكبير */}
+                <div className="flex items-center gap-3">
+                    <span className="text-[10px] font-black text-zinc-500 dark:text-zinc-400 shrink-0">
+                        تكبير
+                    </span>
+                    <input
+                        type="range"
+                        min={1}
+                        max={3}
+                        step={0.1}
+                        value={zoom}
+                        onChange={(e) => setZoom(Number(e.target.value))}
+                        className="w-full accent-emerald-600"
+                    />
+                </div>
+
+                <div className="flex gap-3 justify-end pt-2">
+                    <button
+                        type="button"
+                        onClick={onCancel}
+                        disabled={isSaving}
+                        className="px-4 py-2 rounded-xl text-xs font-bold bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 disabled:opacity-50"
+                    >
+                        إلغاء
+                    </button>
+                    <button
+                        type="button"
+                        onClick={handleConfirm}
+                        disabled={isSaving || !croppedAreaPixels}
+                        className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 inline-flex items-center gap-2"
+                    >
+                        {isSaving ? (
+                            <>
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                جاري الحفظ...
+                            </>
+                        ) : (
+                            "تأكيد الاقتصاص"
+                        )}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ─── مكوّن حقل الرفع مع معاينة الصورة (Drag & Drop + Paste + Crop) ─────────
 function ImageUploadField({
     label,
     field,
@@ -43,14 +209,70 @@ function ImageUploadField({
     error?: string;
     icon: React.ElementType;
 }) {
-    const previewUrl = value ? URL.createObjectURL(value) : null;
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+    const [isDragOver, setIsDragOver] = useState(false);
+    const [showCropModal, setShowCropModal] = useState(false);
+
+    useEffect(() => {
+        if (!value) {
+            setPreviewUrl(null);
+            return;
+        }
+        const url = URL.createObjectURL(value);
+        setPreviewUrl(url);
+        return () => URL.revokeObjectURL(url);
+    }, [value]);
+
+    const handleFile = useCallback(
+        (file: File | null) => {
+            if (file && !file.type.startsWith("image/")) return;
+            onChange(file);
+        },
+        [onChange],
+    );
+
+    const onDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragOver(false);
+        const file = e.dataTransfer.files?.[0] || null;
+        handleFile(file);
+    };
+
+    const onPaste = (e: React.ClipboardEvent) => {
+        const items = e.clipboardData?.items;
+        if (!items) return;
+        for (const item of items) {
+            if (item.type.startsWith("image/")) {
+                const file = item.getAsFile();
+                if (file) {
+                    handleFile(file);
+                    e.preventDefault();
+                }
+                break;
+            }
+        }
+    };
 
     return (
         <div className="group relative">
             <label className="block text-[10px] font-black tracking-widest uppercase text-zinc-500 dark:text-zinc-400 mb-2">
                 {label}
             </label>
-            <div className="relative border border-dashed border-zinc-300 dark:border-zinc-600 rounded-2xl overflow-hidden bg-zinc-50 dark:bg-zinc-800/40 hover:border-emerald-400 dark:hover:border-emerald-500 transition-all duration-300">
+            <div
+                tabIndex={0}
+                onPaste={onPaste}
+                onDragOver={(e) => {
+                    e.preventDefault();
+                    setIsDragOver(true);
+                }}
+                onDragLeave={() => setIsDragOver(false)}
+                onDrop={onDrop}
+                className={`relative border border-dashed rounded-2xl overflow-hidden bg-zinc-50 dark:bg-zinc-800/40 transition-all duration-300 outline-none ${
+                    isDragOver
+                        ? "border-emerald-500 ring-2 ring-emerald-500/30"
+                        : "border-zinc-300 dark:border-zinc-600 hover:border-emerald-400 dark:hover:border-emerald-500"
+                }`}
+            >
                 {previewUrl ? (
                     <>
                         <img
@@ -65,6 +287,13 @@ function ImageUploadField({
                         >
                             <X className="w-3 h-3" />
                         </button>
+                        <button
+                            type="button"
+                            onClick={() => setShowCropModal(true)}
+                            className="absolute top-2 right-2 px-2 py-1 bg-emerald-600 text-white rounded-lg text-[9px] font-black hover:bg-emerald-700 transition-colors shadow-md"
+                        >
+                            اقتصاص
+                        </button>
                         <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/60 to-transparent p-2">
                             <p className="text-white text-[10px] font-bold truncate">
                                 {value?.name}
@@ -77,14 +306,14 @@ function ImageUploadField({
                             <Icon className="w-5 h-5 text-emerald-500 dark:text-emerald-400" />
                         </div>
                         <span className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 text-center leading-relaxed">
-                            اضغط لرفع الصورة
+                            اسحب الصورة هنا، أو الصق (Ctrl+V)، أو اضغط للرفع
                         </span>
                         <input
                             type="file"
                             accept="image/*"
                             className="hidden"
                             onChange={(e) =>
-                                onChange(
+                                handleFile(
                                     e.target.files ? e.target.files[0] : null,
                                 )
                             }
@@ -96,6 +325,17 @@ function ImageUploadField({
                 <p className="text-red-500 text-[10px] mt-1 font-bold">
                     {error}
                 </p>
+            )}
+
+            {showCropModal && value && (
+                <ImageCropModal
+                    file={value}
+                    onCancel={() => setShowCropModal(false)}
+                    onConfirm={(cropped) => {
+                        onChange(cropped);
+                        setShowCropModal(false);
+                    }}
+                />
             )}
         </div>
     );
@@ -282,14 +522,6 @@ export default function Create({ delegates = [] }: Props) {
             onSuccess: () => reset(),
         });
     };
-
-    // const handleSubmit = (e: React.FormEvent) => {
-    //     e.preventDefault();
-    //     post(route("customers.store"), {
-    //         forceFormData: true,
-    //         onSuccess: () => reset(),
-    //     });
-    // };
 
     return (
         <>

@@ -17,7 +17,6 @@ use App\Http\Controllers\BagController;
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\ReportController;
 use App\Models\Bag;
-use App\Models\Customer;
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
@@ -45,17 +44,16 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
-
 // تسجيل دخول الشركة والاونر
 Route::get('/register', [CompanyRegisterController::class, 'create']);
-Route::post('/company/register', [CompanyRegisterController::class, 'store'])
-    ->name('company.register');
+
+Route::post('/company/register', [CompanyRegisterController::class, 'store'])->name('company.register');
 
 Route::middleware(['auth'])->group(function () {
 
     Route::get('/employees', [UserController::class, 'index']);
     Route::post('/employees', [UserController::class, 'store']);
-    Route::put('/employees/{user}', [UserController::class, 'update']);
+    // Route::put('/employees/{user}', [UserController::class, 'update']);
     Route::delete('/employees/{user}', [UserController::class, 'destroy']);
 });
 
@@ -144,7 +142,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('groups.customers.status.update');
 });
 
-
 Route::middleware(['auth'])->group(function () {
     Route::resource('bags', BagController::class);
 
@@ -152,17 +149,15 @@ Route::middleware(['auth'])->group(function () {
         ->name('bags.add-customers-bulk');
 });
 
-
 Route::middleware(['auth'])->group(function () {
     Route::get('/bags/{bag}', [BagController::class, 'show'])->name('bags.show');
 });
+
 Route::middleware(['auth'])->group(function () {
     Route::get('/net/{customer}/group/{group}', [ReportController::class, 'netReservation'])->name('netReservation')
         ->middleware(['auth']);
 });
 
-
-// تأكد من وضع الروتس داخل الـ middleware الخاص بالحماية لضمان أن المستخدم مسجل دخوله
 Route::middleware(['auth'])->group(function () {
 
     // 1. عرض صفحة جدول الموظفين الرئيسية
