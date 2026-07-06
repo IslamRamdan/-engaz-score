@@ -297,7 +297,7 @@ export default function Index({ employees }: Props) {
             <EmployeeForm
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
-                employee={selectedEmployee}
+                employee={selectedEmployee as any}
             />
         </AppLayout>
     );

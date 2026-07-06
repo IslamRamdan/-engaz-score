@@ -1,1 +1,0 @@
-import{j as s}from"./app-DBTsnBwI.js";function m({value:t,className:e="",children:n,...r}){return s.jsx("label",{...r,className:"block text-sm font-medium text-zinc-700 dark:text-zinc-300 "+e,children:t||n})}export{m as I};
