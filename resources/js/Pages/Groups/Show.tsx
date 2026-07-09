@@ -1284,7 +1284,8 @@ export default function Show({
                                                                                 onClick={() => {
                                                                                     // بما أننا تحققنا بالخارج، التوكن هنا مضمون وجوده بنسبة 100%
                                                                                     const token =
-                                                                                        c.pivot.medical_token.trimStart();
+                                                                                        c.pivot?.medical_token?.trimStart() ??
+                                                                                        "";
 
                                                                                     if (
                                                                                         token
