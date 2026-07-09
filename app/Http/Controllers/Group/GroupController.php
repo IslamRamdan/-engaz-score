@@ -174,7 +174,6 @@ class GroupController extends Controller
         $id_number = $sponsor ? $sponsor->id_number : "غير متوفر";
         $issue_number = $visa ? $visa->issue_number : "غير متوفر";
 
-
         return Inertia::render('Groups/Show', [
             'group' => $group,
             'customers' => $group->customers,

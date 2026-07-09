@@ -72,6 +72,8 @@ type Customer = {
     passport_issue_date: string | null;
     governorate: string | null;
     national_id: string | null;
+    passport_issue_place: string | null;
+    marital_status: string | null;
 };
 
 type Group = {
@@ -283,23 +285,23 @@ export default function Show({
 
     const medicalStatusMap: Record<
         NonNullable<MedicalStatus> | "default",
-        { label: string; color: "emerald" | "red" | "zinc" }
+        { label: string; color: "emerald" | "red" | "zinc" | "amber" }
     > = {
-        booked: { label: "بانتظار الكشف", color: "zinc" },
+        booked: { label: "تم الحجز", color: "amber" },
         fit: { label: "لائق طبيًا (سليم)", color: "emerald" },
         unfit: { label: "غير لائق (غير سليم)", color: "red" },
-        default: { label: "غير محدد", color: "zinc" }, // في حال كانت القيمة null
+        default: { label: "غير محدد", color: "zinc" },
     };
 
     // 3. خريطة المعامل
     const labStatusMap: Record<
         NonNullable<LabStatus> | "default",
-        { label: string; color: "emerald" | "red" | "zinc" }
+        { label: string; color: "emerald" | "red" | "zinc" | "amber" }
     > = {
-        booked: { label: "بانتظار النتيجة", color: "zinc" },
+        booked: { label: "تم الحجز", color: "zinc" },
         positive: { label: "إيجابي", color: "red" },
         negative: { label: "سلبي", color: "emerald" },
-        default: { label: "غير محدد", color: "zinc" }, // في حال كانت القيمة null
+        default: { label: "غير محدد", color: "zinc" },
     };
 
     // 4. خريطة إنجاز / النت
@@ -317,6 +319,7 @@ export default function Show({
             "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900",
         red: "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-400 border-red-200 dark:border-red-900",
         zinc: "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700",
+        amber: "bg-amber-50 border-amber-200 text-amber-700",
     };
 
     // حجز النت
@@ -502,7 +505,10 @@ export default function Show({
                         timer: 3000,
                         timerProgressBar: true,
                         showConfirmButton: false,
-                        didClose: () => resolve(true), // 💡 تم التعديل هنا
+                        didClose: () => {
+                            resolve(true);
+                            router.reload();
+                        }, // 💡 تم التعديل هنا
                     });
                 });
             } catch (error) {
@@ -515,10 +521,145 @@ export default function Show({
                         timer: 3000,
                         timerProgressBar: true,
                         showConfirmButton: false,
-                        didClose: () => resolve(true), // 💡 تم التعديل هنا
+                        didClose: () => {
+                            resolve(true);
+                            router.reload();
+                        }, // 💡 تم التعديل هنا
                     });
                 });
             }
+        }
+    };
+    // حجز الكشف الطبي
+    const handleMedicalBooking = async (customer: Customer) => {
+        // Split the name by spaces
+        const nameParts = customer.name_en
+            ? customer.name_en.trim().split(/\s+/)
+            : [];
+        const firstName = nameParts[0] || null;
+        const lastName =
+            nameParts.length > 1 ? nameParts[nameParts.length - 1] : null;
+
+        function reverseDateFormat(dateStr: string | undefined | null) {
+            if (!dateStr) return null;
+            const cleanDate = dateStr.split("T")[0];
+            const parts = cleanDate.split("-");
+            if (parts.length !== 3) return null;
+            const [year, month, day] = parts;
+            return `${day}-${month}-${year}`;
+        }
+
+        // 1. تجميع البيانات القادمة من العميل والتي تحتاج إلى فحص
+        const payload: any = {
+            firstName: firstName,
+            lastName: lastName,
+            passportNumber: customer.passport_number || null,
+            dateOfBirth: reverseDateFormat(customer.birth_date) || null,
+            maritalStatus: "married",
+            passportIssueDate:
+                reverseDateFormat(customer.passport_issue_date) || null,
+            passportIssuePlace: customer.passport_issue_place || null,
+            passportExpiryDate:
+                reverseDateFormat(customer.passport_expiry_date) || null,
+            phone: customer.phone ? "+" + customer.phone : null,
+            nationalId: customer.national_id || null,
+            position: group?.notes || null,
+        };
+
+        // --- قاموس لترجمة أسماء الحقول للغة العربية لتظهر بشكل مفهوم للمستخدم ---
+        const fieldLabels: { [key: string]: string } = {
+            firstName: "الاسم الأول",
+            lastName: "اسم العائلة",
+            passportNumber: "رقم الجواز",
+            dateOfBirth: "تاريخ الميلاد",
+            maritalStatus: "الحالة الاجتماعية",
+            passportIssueDate: "تاريخ إصدار الجواز",
+            passportIssuePlace: "مكان إصدار الجواز",
+            passportExpiryDate: "تاريخ انتهاء الجواز",
+            phone: "رقم الهاتف",
+            nationalId: "الرقم القومي",
+            position: "الوظيفة / الملاحظات",
+        };
+
+        // --- فحص الحقول الفارغة المدخلة من قِبل المستخدم ---
+        const missingFields: string[] = [];
+
+        Object.keys(payload).forEach((key) => {
+            const value = payload[key];
+            if (
+                value === null ||
+                value === undefined ||
+                String(value).trim() === ""
+            ) {
+                missingFields.push(fieldLabels[key] || key);
+            }
+        });
+
+        // --- إذا كانت هناك حقول ناقصة، اظهر الـ Popup واوقف العملية ---
+        if (missingFields.length > 0) {
+            const fieldsList = missingFields.join("، ");
+
+            if (typeof Swal !== "undefined") {
+                Swal.fire({
+                    icon: "error",
+                    title: "بيانات ناقصة!",
+                    text: `يرجى استكمال البيانات التالية أولاً في ملف العميل: ${fieldsList}`,
+                    confirmButtonText: "حسناً",
+                    confirmButtonColor: "#d33",
+                });
+            } else {
+                alert(
+                    `يرجى استكمال البيانات التالية أولاً:\n${missingFields.join("\n")}`,
+                );
+            }
+
+            return; // إيقاف الدالة فوراً ومنع إكمال الحجز
+        }
+
+        // 2. إضافة الحقول الثابتة والتلقائية بعد تخطي الفحص بنجاح
+        payload.country = "EGY";
+        payload.city = "87";
+        payload.destinationCountry = "SA";
+        payload.nationality = "55";
+        payload.visaType = "wv";
+        payload.gender = "male";
+        payload.email = "erfa20045@gmail.com";
+        payload.userEmail = "erfa20045@gmail.com";
+        payload.customer_id = customer.id;
+        payload.group_id = group.id;
+
+        console.log(payload);
+        // 3. إرسال البيانات إلى السيرفر
+        // 3. إرسال البيانات إلى السيرفر
+        try {
+            const res = await fetch("http://localhost:3000/api/wafid", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(payload),
+            });
+
+            const response = await res.json();
+            router.reload();
+        } catch (error) {
+            console.error("Error during submission:", error);
+            await new Promise<void>((resolve) => {
+                Swal.fire({
+                    title: "فشلت العملية!",
+                    text:
+                        "حدث خطأ في الشبكة أو اتصال السيرفر أثناء تنفيذ حجز الكشف الطبي للعميل: " +
+                        (customer.name_ar || ""),
+                    icon: "error",
+                    timer: 3000,
+                    timerProgressBar: true,
+                    showConfirmButton: false,
+                    didClose: () => {
+                        resolve();
+                        router.reload();
+                    }, // ⬅️ الإصلاح هنا
+                });
+            });
         }
     };
 
@@ -1123,6 +1264,9 @@ export default function Show({
                                                                     <div className="absolute left-full top-0 ml-1 hidden group-hover/sub:block bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 shadow-xl rounded-xl p-1 w-44 z-30">
                                                                         <button
                                                                             onClick={() => {
+                                                                                handleMedicalBooking(
+                                                                                    c,
+                                                                                );
                                                                                 setActiveRowMenu(
                                                                                     null,
                                                                                 );
@@ -1134,6 +1278,32 @@ export default function Show({
                                                                             الكشف
                                                                             الطبي
                                                                         </button>
+                                                                        {c.pivot
+                                                                            ?.medical_token && (
+                                                                            <button
+                                                                                onClick={() => {
+                                                                                    // بما أننا تحققنا بالخارج، التوكن هنا مضمون وجوده بنسبة 100%
+                                                                                    const token =
+                                                                                        c.pivot.medical_token.trimStart();
+
+                                                                                    if (
+                                                                                        token
+                                                                                    ) {
+                                                                                        window.open(
+                                                                                            `https://wafid.com/appointment/${token}/pay/`,
+                                                                                            "_blank",
+                                                                                        );
+                                                                                    }
+                                                                                }}
+                                                                                className="w-full flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-lg text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition text-right"
+                                                                            >
+                                                                                <Stethoscope className="w-4 h-4 text-zinc-400" />
+                                                                                دفع
+                                                                                رسوم
+                                                                                الكشف
+                                                                                الطبي
+                                                                            </button>
+                                                                        )}
                                                                     </div>
                                                                 </div>
 
@@ -1337,9 +1507,7 @@ export default function Show({
                                         }
                                         className="w-full text-sm border border-zinc-200 dark:border-zinc-750 bg-white dark:bg-zinc-900 rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition text-zinc-800 dark:text-zinc-200"
                                     >
-                                        <option value="booked">
-                                            في انتظار الحجز
-                                        </option>
+                                        <option value="booked">تم الحجز</option>
                                         <option value="fit">لائق طبياً</option>
                                         <option value="unfit">غير لائق</option>
                                     </select>

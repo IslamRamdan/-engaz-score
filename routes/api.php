@@ -9,3 +9,4 @@ Route::get('/user', function (Request $request) {
 })->middleware('auth:sanctum');
 // /api/send-engaz
 Route::post('/send-engaz', [ApiController::class, 'sendEngaz']);
+Route::post('/token/check-medical', [ApiController::class, 'checkMedical']);

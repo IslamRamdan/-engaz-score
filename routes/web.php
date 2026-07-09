@@ -110,10 +110,8 @@ Route::middleware(['auth'])->group(function () {
         ->name('customer.delegate_history');
 });
 
-// استخراج بيانات جواز السفر لكل عميل
 Route::post('/customers/extract-passport', [CustomerController::class, 'extractPassport'])
     ->name('customers.extract-passport');
-
 
 Route::middleware(['auth', 'verified'])->group(function () {
 
