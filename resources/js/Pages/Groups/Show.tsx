@@ -1164,7 +1164,11 @@ export default function Show({
                                                                     عرض الحالة
                                                                 </button>
                                                                 <Link
-                                                                    href={"/"}
+                                                                    // @ts-ignore
+                                                                    href={route(
+                                                                        "customers.show",
+                                                                        c.id,
+                                                                    )}
                                                                     className="flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-lg text-info-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
                                                                 >
                                                                     <Eye className="w-4 h-4 text-info-500" />
@@ -1221,7 +1225,15 @@ export default function Show({
                                                                     {/* محتوى القائمة الفرعية */}
                                                                     <div className="absolute left-full top-0 ml-1 hidden group-hover/sub:block bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 shadow-xl rounded-xl p-1 w-44 z-30">
                                                                         <a
-                                                                            href={`/admin/nomination_card/${c.id}`}
+                                                                            href={route(
+                                                                                "nomination",
+                                                                                {
+                                                                                    customer_id:
+                                                                                        c.id,
+                                                                                    group_id:
+                                                                                        group.id,
+                                                                                },
+                                                                            )} // تأكد من اسم متغير الـ group_id المتوفر لديك في الصفحة
                                                                             target="_blank"
                                                                             rel="noreferrer"
                                                                             className="flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-lg text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"

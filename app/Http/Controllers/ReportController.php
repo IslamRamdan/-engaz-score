@@ -43,4 +43,27 @@ class ReportController extends Controller
 
         ]);
     }
+    function nomination($customer_id, $group_id)
+    {
+        $customer = Customer::with([
+            'groups' => function ($query) use ($group_id) {
+                $query->where('groups.id', $group_id);
+            },
+            'groups.visa.sponsor' // هنا جلبنا الفيزا، وجلبنا الـ sponsor المرتبط بتلك الفيزا
+        ])->find($customer_id);
+
+        if ($customer->groups[0]->visa->consulate === 'القاهرة') {
+            return Inertia::render('Reports/nomination_card/Cairo', [
+                'customer' => $customer,
+                'jobs'   => json_decode(file_get_contents(public_path('jops.json')), true),
+
+            ]);
+        } else {
+            return Inertia::render('Reports/nomination_card/Suas', [
+                'customer' => $customer,
+                'jobs'   => json_decode(file_get_contents(public_path('jops.json')), true),
+
+            ]);
+        }
+    }
 }

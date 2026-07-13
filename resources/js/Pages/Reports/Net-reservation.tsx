@@ -38,10 +38,11 @@ interface Customer {
     phone: string;
     pivot?: PivotData; // هنا تتواجد بيانات الجدول الوسيط
     passport_number: string;
-    passport_expiry_date: Date;
+    // ⚠️ Laravel/Inertia بيبعت التواريخ كـ string (مش Date object حقيقي)
+    passport_expiry_date: string | null;
     gender: string;
     name_en: string;
-    birth_date: Date;
+    birth_date: string | null;
     governorate: string;
     personal_image: string;
 }
@@ -54,6 +55,23 @@ interface NetReservationProps {
 export interface Job {
     Value: string | number;
     Text: string;
+}
+
+// ─── تنسيق تاريخ نصي بأمان (بدل .toISOString() اللي بتكسر مع النصوص) ─────────
+function formatDateSafe(dateInput: string | null | undefined): string {
+    if (!dateInput) return "غير متوفر";
+    // لو التاريخ جايّ بصيغة ISO فيها "T" (زي 2026-07-12T00:00:00.000000Z) بناخد الجزء الأول بس
+    const isoPart = dateInput.split("T")[0];
+    // نتأكد إنه فعلاً بصيغة تاريخ صحيحة yyyy-mm-dd
+    if (/^\d{4}-\d{2}-\d{2}$/.test(isoPart)) {
+        return isoPart;
+    }
+    // fallback: نحاول نحوله عبر Date لو كان بصيغة مختلفة
+    const parsed = new Date(dateInput);
+    if (!isNaN(parsed.getTime())) {
+        return parsed.toISOString().split("T")[0];
+    }
+    return "غير متوفر";
 }
 
 export const NetReservation: React.FC<NetReservationProps> = ({
@@ -79,9 +97,7 @@ export const NetReservation: React.FC<NetReservationProps> = ({
         passport_id: customer.passport_number,
         passport_type: "عادي",
         gender: customer.gender === "female" ? "أنثى" : "ذكر",
-        passport_expiry:
-            customer.passport_expiry_date?.toISOString().split("T")[0] ||
-            "غير متوفر",
+        passport_expiry: formatDateSafe(customer.passport_expiry_date),
         embassy_title: group.visa?.consulate || "غير متوفر",
         visa_period:
             {
@@ -131,8 +147,7 @@ export const NetReservation: React.FC<NetReservationProps> = ({
             jobs.find((j: any) => j.Value === group.notes)?.Text ||
             group.notes ||
             "---",
-        date_birth:
-            customer.birth_date?.toISOString().split("T")[0] || "غير متوفر",
+        date_birth: formatDateSafe(customer.birth_date),
         governorate_live: customer.governorate || "غير متوفر",
         nationality: "مصر",
         purpose:

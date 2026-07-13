@@ -354,6 +354,45 @@ class CustomerController extends Controller
 
         return redirect()->route('customers.index')->with('success', 'تم تحديث بيانات العميل بنجاح وحذف الملفات السابقة');
     }
+    public function show(Customer $customer)
+    {
+        // جلب المندوب الحالي المرتبط بالعميل (آخر مندوب مسند إليه)
+        $currentDelegateId = $customer->delegates()
+            ->orderByDesc('customer_delegate.created_at') // عدّلي اسم عمود التاريخ لو مختلف
+            ->value('delegates.id');
+
+        return Inertia::render('Customers/Show', [
+            'customer' => $customer->only([
+                'id',
+                'name_ar',
+                'name_en',
+                'gender',
+                'birth_date',
+                'nationality',
+                'marital_status',
+                'phone',
+                'whatsapp',
+                'governorate',
+                'address',
+                'passport_number',
+                'passport_issue_date',
+                'passport_expiry_date',
+                'passport_issue_place',
+                'mrz',
+                'national_id',
+                'visa_number',
+                'notes',
+                'passport_image',
+                'personal_image',
+                'national_id_image',
+                'job_proof_image',
+                'created_at',
+                'updated_at',
+            ]),
+            'current_delegate_id' => $currentDelegateId,
+            'delegates' => Delegate::select('id', 'name')->orderBy('name')->get(),
+        ]);
+    }
 
     public function delegate_history($customer)
     {

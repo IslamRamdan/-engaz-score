@@ -17,6 +17,8 @@ use App\Http\Controllers\BagController;
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\ReportController;
 use App\Models\Bag;
+use App\Models\Customer;
+use App\Models\Sponsor;
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
@@ -105,6 +107,9 @@ Route::middleware(['auth'])->group(function () {
     Route::put('/customers/{customer}', [CustomerController::class, 'update'])
         ->name('customers.update');
 
+    Route::get('/customers/{customer}', [CustomerController::class, 'show'])
+        ->name('customers.show');
+
     // تاريخ المندوبين لكل عميل
     Route::get('/customers/delegate/{id}', [CustomerController::class, 'delegate_history'])
         ->name('customer.delegate_history');
@@ -154,6 +159,8 @@ Route::middleware(['auth'])->group(function () {
 Route::middleware(['auth'])->group(function () {
     Route::get('/net/{customer}/group/{group}', [ReportController::class, 'netReservation'])->name('netReservation')
         ->middleware(['auth']);
+
+    Route::get('/nomination/{customer_id}/{group_id}', [ReportController::class, 'nomination'])->name('nomination');
 });
 
 Route::middleware(['auth'])->group(function () {
