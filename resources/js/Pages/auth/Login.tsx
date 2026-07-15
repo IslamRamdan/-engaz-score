@@ -1,5 +1,6 @@
 import { Head, Link, useForm } from "@inertiajs/react";
-import { FormEventHandler } from "react";
+import { FormEventHandler, useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import ThemeToggle from "@/Components/ThemeToggle";
 
 // =========================================================
@@ -18,8 +19,10 @@ export default function Login({
     const { data, setData, post, processing, errors, reset } = useForm({
         email: "",
         password: "",
-        remember: false,
+        remember: false as boolean,
     });
+
+    const [showPassword, setShowPassword] = useState(false);
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
@@ -39,11 +42,12 @@ export default function Login({
                 style={{
                     fontFamily: "'Cairo', sans-serif",
                     // خلفية خضراء داكنة متدرجة
-                    background: "linear-gradient(135deg, #1f2923 0%, #111d17 100%)",
+                    background:
+                        "linear-gradient(135deg, #1f2923 0%, #111d17 100%)",
                 }}
             >
-                {/* زر الوضع الليلي في الزاوية العلوية اليسرى */}
-                <div className="absolute top-6 left-6 z-50">
+                {/* زر الوضع الليلي في الزاوية العلوية اليمنى (تصحيح الاتجاه ليتماشى مع RTL) */}
+                <div className="absolute top-6 right-6 z-50">
                     <ThemeToggle className="bg-white/10 text-white hover:bg-white/20 dark:bg-black/30 dark:hover:bg-black/50 backdrop-blur-md" />
                 </div>
 
@@ -51,7 +55,9 @@ export default function Login({
                     شعار واسم الشركة
                 ====================================================== */}
                 <div className="mb-8 flex items-center justify-center gap-3 animate-fade-in-up">
-                    <h1 className="text-white text-3xl font-black tracking-wide">إنجاز سكور</h1>
+                    <h1 className="text-white text-3xl font-black tracking-wide">
+                        إنجاز سكور
+                    </h1>
                     <div className="bg-[#1f2923] p-2 rounded-xl shadow-lg border border-white/10">
                         <Link href="/">
                             <img
@@ -66,7 +72,6 @@ export default function Login({
 
                 {/* كرت الفورم الأبيض في المنتصف */}
                 <div className="w-full max-w-md bg-white dark:bg-zinc-800 rounded-3xl shadow-2xl p-8 sm:p-10 relative z-10 mx-4">
-                    
                     {/* ======================================================
                         العنوان
                     ====================================================== */}
@@ -80,7 +85,7 @@ export default function Login({
                     </div>
 
                     {status && (
-                        <div className="mb-4 font-medium text-sm text-green-600">
+                        <div className="mb-4 font-medium text-sm text-green-600 text-center">
                             {status}
                         </div>
                     )}
@@ -98,12 +103,18 @@ export default function Login({
                                 type="email"
                                 dir="ltr"
                                 placeholder="example@agency.com"
-                                className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl p-3.5 text-sm focus:ring-2 focus:ring-[#2DAA7E] focus:border-[#2DAA7E] dark:focus:ring-[#5CC98B] dark:focus:border-[#5CC98B] transition-all outline-none text-left dark:text-white"
+                                className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl p-3.5 text-sm focus:ring-2 focus:ring-[#2DAA7E] focus:border-[#2DAA7E] dark:focus:ring-[#5CC98B] dark:focus:border-[#5CC98B] transition-all outline-none text-center dark:text-white"
                                 value={data.email}
-                                onChange={(e) => setData("email", e.target.value)}
+                                onChange={(e) =>
+                                    setData("email", e.target.value)
+                                }
                                 required
                             />
-                            {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
+                            {errors.email && (
+                                <p className="text-red-500 text-xs mt-1">
+                                    {errors.email}
+                                </p>
+                            )}
                         </div>
 
                         {/* حقل كلمة المرور */}
@@ -118,20 +129,71 @@ export default function Login({
                                         className="text-[12px] font-bold transition-colors"
                                         style={{ color: "#2DAA7E" }}
                                     >
-                                        نسيت كلمة المرور؟
+                                        نسيت كلمة المرور？
                                     </Link>
                                 )}
                             </div>
+
+                            {/* حاوية حقل كلمة المرور مع زر إظهار/إخفاء */}
+                            <div className="relative">
+                                <input
+                                    type={showPassword ? "text" : "password"}
+                                    dir="ltr"
+                                    placeholder="••••••••"
+                                    className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl p-3.5 pl-11 text-sm focus:ring-2 focus:ring-[#2DAA7E] focus:border-[#2DAA7E] dark:focus:ring-[#5CC98B] dark:focus:border-[#5CC98B] transition-all outline-none text-center dark:text-white"
+                                    value={data.password}
+                                    onChange={(e) =>
+                                        setData("password", e.target.value)
+                                    }
+                                    required
+                                />
+                                {/* زر عرض/إخفاء كلمة السر - على يسار الحقل لأن اتجاه الكتابة LTR */}
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        setShowPassword((prev) => !prev)
+                                    }
+                                    className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors"
+                                    aria-label={
+                                        showPassword
+                                            ? "إخفاء كلمة السر"
+                                            : "إظهار كلمة السر"
+                                    }
+                                    tabIndex={-1}
+                                >
+                                    {showPassword ? (
+                                        <EyeOff size={18} />
+                                    ) : (
+                                        <Eye size={18} />
+                                    )}
+                                </button>
+                            </div>
+                            {errors.password && (
+                                <p className="text-red-500 text-xs mt-1">
+                                    {errors.password}
+                                </p>
+                            )}
+                        </div>
+
+                        {/* ======================================================
+                            زر تذكرني
+                        ====================================================== */}
+                        <div className="flex items-center gap-2 animate-fade-in-up animation-delay-150">
                             <input
-                                type="password"
-                                dir="ltr"
-                                placeholder="••••••••"
-                                className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl p-3.5 text-sm focus:ring-2 focus:ring-[#2DAA7E] focus:border-[#2DAA7E] dark:focus:ring-[#5CC98B] dark:focus:border-[#5CC98B] transition-all outline-none text-left dark:text-white"
-                                value={data.password}
-                                onChange={(e) => setData("password", e.target.value)}
-                                required
+                                type="checkbox"
+                                id="remember"
+                                checked={data.remember}
+                                onChange={(e) =>
+                                    setData("remember", e.target.checked)
+                                }
+                                className="w-4 h-4 rounded border-zinc-300 dark:border-zinc-600 text-[#2DAA7E] focus:ring-[#2DAA7E] dark:bg-zinc-900 cursor-pointer accent-[#2DAA7E]"
                             />
-                            {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}
+                            <label
+                                htmlFor="remember"
+                                className="text-[13px] font-medium text-zinc-600 dark:text-zinc-300 cursor-pointer select-none"
+                            >
+                                تذكرني
+                            </label>
                         </div>
 
                         {/* ======================================================
@@ -142,7 +204,10 @@ export default function Login({
                                 type="submit"
                                 disabled={processing}
                                 className="w-full py-3.5 rounded-xl font-bold transition-all disabled:opacity-50 text-[15px] shadow-lg text-white"
-                                style={{ background: "linear-gradient(135deg, #2DAA7E 0%, #1D6B55 100%)" }}
+                                style={{
+                                    background:
+                                        "linear-gradient(135deg, #2DAA7E 0%, #1D6B55 100%)",
+                                }}
                             >
                                 {processing ? "جاري الدخول..." : "دخول النظام"}
                             </button>
@@ -153,7 +218,9 @@ export default function Login({
                         رابط حساب جديد
                     ====================================================== */}
                     <div className="mt-8 text-center text-[13px] animate-fade-in-up animation-delay-300">
-                        <span className="text-zinc-500 dark:text-zinc-400">ليس لديك حساب بعد؟ </span>
+                        <span className="text-zinc-500 dark:text-zinc-400">
+                            ليس لديك حساب بعد؟{" "}
+                        </span>
                         <Link
                             href={route("register")}
                             className="font-bold hover:underline"
@@ -166,7 +233,9 @@ export default function Login({
             </div>
 
             {/* ستايل إضافي للحركات */}
-            <style dangerouslySetInnerHTML={{__html: `
+            <style
+                dangerouslySetInnerHTML={{
+                    __html: `
                 @keyframes fadeInUp {
                     from { opacity: 0; transform: translateY(10px); }
                     to { opacity: 1; transform: translateY(0); }
@@ -176,9 +245,12 @@ export default function Login({
                     opacity: 0;
                 }
                 .animation-delay-100 { animation-delay: 0.1s; }
+                .animation-delay-150 { animation-delay: 0.15s; }
                 .animation-delay-200 { animation-delay: 0.2s; }
                 .animation-delay-300 { animation-delay: 0.3s; }
-            `}} />
+            `,
+                }}
+            />
         </>
     );
 }

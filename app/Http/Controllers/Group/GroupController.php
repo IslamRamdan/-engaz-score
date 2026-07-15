@@ -174,13 +174,27 @@ class GroupController extends Controller
         $id_number = $sponsor ? $sponsor->id_number : "غير متوفر";
         $issue_number = $visa ? $visa->issue_number : "غير متوفر";
 
+
+        $allJobs = json_decode(file_get_contents(public_path('jops.json')), true);
+
+        // 2. البحث عن اسم الوظيفة بناءً على الكود المخزن في notes
+        $jobCode = $group->notes; // الكود الموجود في قاعدة البيانات
+        $jobName = null;
+
+        foreach ($allJobs as $job) {
+            if ($job['Value'] == $jobCode) {
+                $jobName = $job['Text'];
+                break;
+            }
+        }
+
         return Inertia::render('Groups/Show', [
             'group' => $group,
             'customers' => $group->customers,
             'sponsorName' => $sponsorName,
             'issue_number' => $issue_number,
             'id_number' => $id_number,
-            'job' => $group->notes,
+            'job' => $jobName,
             'bags' => Bag::select('id', 'name')->get(), // جلب كل الحقائب المتاحة
             "user" => auth()->user(),
             "visa" => $visa,

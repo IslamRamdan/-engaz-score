@@ -663,6 +663,119 @@ export default function Show({
         }
     };
 
+    // حجز المعامل
+    const handleLabBooking = async (customer: Customer) => {
+        // 1. تحديد الحقول المطلوبة للتحقق منها
+        const requiredFields = [
+            { key: "phone", label: "رقم الهاتف" },
+            { key: "name_ar", label: "الاسم الكامل" },
+            { key: "national_id", label: "الرقم القومي" },
+            { key: "netNumber", label: "حجز النت" },
+        ];
+
+        // 2. التحقق من وجود الحقول
+        const missingFields = requiredFields
+            .filter((field) => {
+                if (field.key === "netNumber") {
+                    return !customer.pivot?.e_number;
+                }
+                return !customer[field.key as keyof Customer];
+            })
+            .map((field) => field.label);
+
+        // 3. في حال وجود بيانات ناقصة، توقف وأظهر تنبيهاً
+        if (missingFields.length > 0) {
+            Swal.fire({
+                icon: "warning",
+                title: "بيانات ناقصة",
+                html: `يرجى إكمال البيانات التالية أولاً:<br><br><b>${missingFields.join("، ")}</b>`,
+                confirmButtonText: "حسناً",
+            });
+            return;
+        }
+
+        // 4. تجهيز الـ payload
+        const payload = {
+            phone: customer.phone,
+            fullName: customer.name_ar,
+            nationalId: customer.national_id,
+            email: "erfa20045@gmail.com",
+            netNumber: customer.pivot?.e_number,
+            passportNumber: customer.passport_number,
+        };
+
+        // 5. محاولة الإرسال للسيرفر
+        try {
+            Swal.fire({
+                title: "جاري الحجز...",
+                allowOutsideClick: false,
+                didOpen: () => Swal.showLoading(),
+            });
+
+            const res = await fetch("http://localhost:3000/submit-form", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(payload),
+            });
+
+            if (!res.ok)
+                throw new Error(`HTTP ${res.status} ${res.statusText}`);
+            Swal.close();
+            const data = await res.json();
+            console.log("Server response:", data);
+        } catch (err) {
+            Swal.close();
+            console.error("Error during lab booking:", err);
+        }
+    };
+
+    // حساب حالة انتهاء الجواز - يرجع تحذير لو أقل من سنة
+
+    const getPassportWarning = (
+        expiryDate?: string | null,
+    ): { isWarning: boolean; label: string } | null => {
+        if (!expiryDate) return null;
+
+        const expiry = new Date(expiryDate);
+        const now = new Date();
+        const diffMs = expiry.getTime() - now.getTime();
+        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+        // منتهي بالفعل
+        if (diffDays < 0) {
+            const daysAgo = Math.abs(diffDays);
+            if (daysAgo >= 365) {
+                const years = Math.floor(daysAgo / 365);
+                const months = Math.floor((daysAgo % 365) / 30);
+                const label =
+                    months > 0
+                        ? `⚠️ انتهت صلاحية الجواز منذ ${years} سنة و ${months} شهر`
+                        : `⚠️ انتهت صلاحية الجواز منذ ${years} سنة`;
+                return { isWarning: true, label };
+            }
+            return {
+                isWarning: true,
+                label: `⚠️ انتهت صلاحية الجواز منذ ${daysAgo} يوم`,
+            };
+        }
+
+        // باقي أقل من سنة
+        if (diffDays < 365) {
+            const months = Math.floor(diffDays / 30);
+            const days = diffDays % 30;
+            const label =
+                months > 0
+                    ? `⚠️ متبقي على انتهاء الجواز: ${months} شهر و ${days} يوم`
+                    : `⚠️ متبقي على انتهاء الجواز: ${days} يوم فقط`;
+            return { isWarning: true, label };
+        }
+
+        // باقي أكتر من سنة - مفيش تنبيه
+        return { isWarning: false, label: "" };
+    };
+
     const StatusBadge = ({
         label,
         color,
@@ -873,10 +986,28 @@ export default function Show({
                                             ? enetStatusMap[c.pivot.enet_status]
                                             : enetStatusMap["default"];
 
+                                        const passportWarning =
+                                            getPassportWarning(
+                                                c.passport_expiry_date,
+                                            );
+
                                         return (
                                             <tr
                                                 key={c.id}
-                                                className={`hover:bg-zinc-50/80 dark:hover:bg-zinc-900/40 transition-colors ${isSelected ? "bg-emerald-50/30 dark:bg-emerald-950/10" : ""}`}
+                                                title={
+                                                    passportWarning?.isWarning
+                                                        ? passportWarning.label
+                                                        : undefined
+                                                }
+                                                className={`hover:bg-zinc-50/80 dark:hover:bg-zinc-900/40 transition-colors ${
+                                                    isSelected
+                                                        ? "bg-emerald-50/30 dark:bg-emerald-950/10"
+                                                        : ""
+                                                } ${
+                                                    passportWarning?.isWarning
+                                                        ? "bg-red-200 dark:bg-red-900/50 hover:bg-red-300 dark:hover:bg-red-900/70" // تغيير 50 إلى 200/900
+                                                        : ""
+                                                }`}
                                             >
                                                 {/* Checkbox */}
                                                 <td className="p-4 text-center">
@@ -1018,7 +1149,13 @@ export default function Show({
                                                                     c.passport_number
                                                                 }
                                                             </p>
-                                                            <p className="text-[11px] text-zinc-400 dark:text-zinc-500">
+                                                            <p
+                                                                className={`text-[11px] ${
+                                                                    passportWarning?.isWarning
+                                                                        ? "text-red-600 dark:text-red-400 font-bold"
+                                                                        : "text-zinc-400 dark:text-zinc-500"
+                                                                }`}
+                                                            >
                                                                 ينتهي:{" "}
                                                                 {c.passport_expiry_date
                                                                     ? new Date(
@@ -1334,6 +1471,9 @@ export default function Show({
                                                                     <div className="absolute left-full top-0 ml-1 hidden group-hover/sub:block bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 shadow-xl rounded-xl p-1 w-44 z-30">
                                                                         <button
                                                                             onClick={() => {
+                                                                                handleLabBooking(
+                                                                                    c,
+                                                                                );
                                                                                 setActiveRowMenu(
                                                                                     null,
                                                                                 );
