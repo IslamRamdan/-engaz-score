@@ -188,6 +188,8 @@ class GroupController extends Controller
             }
         }
 
+        // return $group->customers;
+
         return Inertia::render('Groups/Show', [
             'group' => $group,
             'customers' => $group->customers,
@@ -224,6 +226,7 @@ class GroupController extends Controller
             'lab_status'     => ['nullable', 'in:booked,positive,negative'],
             'enet_status'    => ['nullable', 'in:booked,not_booked'],
             'e_number'       => ['nullable', 'string', 'max:255'],
+            'hospital_address' => ['nullable', 'string'],
         ]);
 
         $group->customers()->updateExistingPivot(

@@ -17,7 +17,8 @@ class CustomerGroup extends Pivot
         'medical_token',
         'lab_status',
         'enet_status',
-        'e_number'
+        'e_number',
+        'hospital_address',
     ];
 
     // إذا كنت تريد التعامل مع الحالات كـ Enums أو Casts مستقبلاً (اختياري)
@@ -25,5 +26,6 @@ class CustomerGroup extends Pivot
         'medical_status' => 'string',
         'lab_status' => 'string',
         'enet_status' => 'string',
+        'hospital_address' => 'string',
     ];
 }

@@ -32,7 +32,7 @@ class Group extends Model
     {
         return $this->belongsToMany(Customer::class, 'customer_group')
             ->using(CustomerGroup::class) // هنا نربط الموديل الوسيط
-            ->withPivot(['medical_status', 'medical_token', 'lab_status', 'enet_status', 'e_number'])
+            ->withPivot(['medical_status', 'medical_token', 'lab_status', 'enet_status', 'e_number', 'hospital_address'])
             ->withTimestamps();
     }
 

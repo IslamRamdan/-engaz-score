@@ -44,6 +44,7 @@ export interface CustomerGroupPivot {
     lab_status: "booked" | "positive" | "negative" | null;
     enet_status: "booked" | "not_booked" | null;
     e_number: string | null;
+    hospital_address: string | null;
     created_at?: string;
     updated_at?: string;
 }
@@ -145,13 +146,20 @@ export default function Show({
 
     const [isMoveModalOpen, setIsMoveModalOpen] = useState(false);
     const [targetBagId, setTargetBagId] = useState<number | "">("");
-
-    const { data, setData, put, processing, reset } = useForm({
-        medical_status: "",
+    const { data, setData, put, processing, reset } = useForm<{
+        medical_status: "booked" | "fit" | "unfit" | null;
+        medical_token: string | null;
+        lab_status: "booked" | "positive" | "negative" | string | null;
+        enet_status: "booked" | "not_booked" | string | null;
+        e_number: string | null;
+        hospital_address: string | null;
+    }>({
+        medical_status: null,
         medical_token: "",
         lab_status: "",
         enet_status: "",
         e_number: "",
+        hospital_address: "",
     });
 
     const isAllSelected =
@@ -628,7 +636,6 @@ export default function Show({
         payload.customer_id = customer.id;
         payload.group_id = group.id;
 
-        console.log(payload);
         // 3. إرسال البيانات إلى السيرفر
         // 3. إرسال البيانات إلى السيرفر
         try {
@@ -659,6 +666,149 @@ export default function Show({
                         router.reload();
                     }, // ⬅️ الإصلاح هنا
                 });
+            });
+        }
+    };
+
+    // التحقق من الحالة الطبية
+    const handleViewMedicalResult = async (customer: Customer) => {
+        if (!customer.pivot?.medical_token) {
+            Swal.fire({
+                icon: "warning",
+                title: "تنبيه",
+                text: "لا يوجد رقم توكن طبي لهذا العميل.",
+                confirmButtonColor: "#10b981",
+            });
+            return;
+        }
+
+        const baseUrl = "http://localhost:3000";
+        const url = `${baseUrl}/check-medical/${customer.pivot.medical_token}/${group.id}`;
+
+        Swal.fire({
+            title: '<span style="font-family: inherit; font-size: 1.1rem;">جارٍ التحقق والترجمة...</span>',
+            html: '<div style="color: #71717a; font-size: 0.9rem;">يرجى الانتظار قليلاً ريثما يتم جلب البيانات</div>',
+            allowOutsideClick: false,
+            didOpen: () => Swal.showLoading(),
+            customClass: {
+                popup: "rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-2xl",
+            },
+        });
+
+        try {
+            const response = await fetch(url);
+            const result = await response.json();
+
+            if (!response.ok || !result.success) {
+                Swal.close();
+                Swal.fire({
+                    icon: "error",
+                    title: "فشل التحقق",
+                    text: result.message || "حدث خطأ في البيانات أو الرابط.",
+                    confirmButtonColor: "#ef4444",
+                    customClass: {
+                        popup: "rounded-2xl",
+                    },
+                });
+                return;
+            }
+
+            const translateText = async (text: string) => {
+                if (!text) return "غير متوفر";
+                try {
+                    const res = await fetch(
+                        `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|ar`,
+                    );
+                    const data = await res.json();
+                    if (
+                        data &&
+                        data.responseData &&
+                        data.responseData.translatedText
+                    ) {
+                        return data.responseData.translatedText;
+                    }
+                } catch (e) {
+                    console.error("Translation error:", e);
+                }
+                return text;
+            };
+
+            const [arabicHospitalName, arabicAddress] = await Promise.all([
+                translateText(result.hospitalName),
+                translateText(
+                    result.address
+                        ? result.address.replace(/\s+/g, " ").trim()
+                        : "",
+                ),
+            ]);
+
+            Swal.close();
+
+            // تحديد لون وشكل الحالة الطبية
+            const getStatusBadge = (status: string) => {
+                switch (status?.toLowerCase()) {
+                    case "fit":
+                        return `<span style="background-color: #d1fae5; color: #047857; padding: 4px 12px; border-radius: 9999px; font-size: 0.8rem; font-weight: 600;">لائق طبياً (Fit)</span>`;
+                    case "unfit":
+                        return `<span style="background-color: #fee2e2; color: #b91c1c; padding: 4px 12px; border-radius: 9999px; font-size: 0.8rem; font-weight: 600;">غير لائق (Unfit)</span>`;
+                    case "booked":
+                        return `<span style="background-color: #fef3c7; color: #b45309; padding: 4px 12px; border-radius: 9999px; font-size: 0.8rem; font-weight: 600;">تم الحجز (Booked)</span>`;
+                    default:
+                        return `<span style="background-color: #f4f4f5; color: #52525b; padding: 4px 12px; border-radius: 9999px; font-size: 0.8rem; font-weight: 600;">${status || "غير متوفر"}</span>`;
+                }
+            };
+
+            Swal.fire({
+                title: `<div style="font-size: 1.25rem; font-weight: 700; color: #18181b; margin-bottom: 4px;">نتيجة الكشف الطبي</div>`,
+                html: `
+                <div style="text-align: right; direction: rtl; display: flex; flex-direction: column; gap: 12px; padding: 8px 4px; font-family: inherit;">
+                    
+                    <!-- الحالة الطبية -->
+                    <div style="background-color: #f9fafb; border: 1px solid #f4f4f5; padding: 12px 16px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-size: 0.85rem; color: #71717a; font-weight: 600;">الحالة الطبية:</span>
+                        <div>${getStatusBadge(result.status)}</div>
+                    </div>
+
+                    <!-- اسم المستشفى -->
+                    <div style="background-color: #f9fafb; border: 1px solid #f4f4f5; padding: 12px 16px; border-radius: 12px; display: flex; flex-direction: column; gap: 4px;">
+                        <span style="font-size: 0.85rem; color: #71717a; font-weight: 600;">اسم المستشفى:</span>
+                        <span style="font-size: 0.95rem; color: #18181b; font-weight: 700;">${arabicHospitalName}</span>
+                    </div>
+
+                    <!-- عنوان المستشفى -->
+                    <div style="background-color: #f9fafb; border: 1px solid #f4f4f5; padding: 12px 16px; border-radius: 12px; display: flex; flex-direction: column; gap: 4px;">
+                        <span style="font-size: 0.85rem; color: #71717a; font-weight: 600;">العنوان:</span>
+                        <span style="font-size: 0.85rem; color: #52525b; line-height: 1.5;">${arabicAddress || customer.pivot?.hospital_address || "غير متوفر"}</span>
+                    </div>
+
+                </div>
+            `,
+                confirmButtonText: "إغلاق",
+                confirmButtonColor: "#059669",
+                customClass: {
+                    popup: "rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-xl p-6",
+                    confirmButton:
+                        "rounded-xl px-5 py-2.5 text-sm font-medium transition-all shadow-sm",
+                },
+                didClose: () => {
+                    router.reload();
+                }, // ⬅️ الإصلاح هنا
+            });
+        } catch (error: any) {
+            Swal.close();
+            Swal.fire({
+                icon: "error",
+                title: "خطأ في الاتصال",
+                text:
+                    error?.message ||
+                    "فشل الاتصال بالسيرفر، يرجى المحاولة مرة أخرى.",
+                confirmButtonColor: "#ef4444",
+                customClass: {
+                    popup: "rounded-2xl",
+                },
+                didClose: () => {
+                    router.reload();
+                }, // ⬅️ الإصلاح هنا
             });
         }
     };
@@ -1264,10 +1414,14 @@ export default function Show({
                                                                         setData(
                                                                             {
                                                                                 medical_status:
-                                                                                    c
+                                                                                    (c
                                                                                         .pivot
-                                                                                        ?.medical_status ||
-                                                                                    "booked",
+                                                                                        ?.medical_status ??
+                                                                                        null) as
+                                                                                        | "booked"
+                                                                                        | "fit"
+                                                                                        | "unfit"
+                                                                                        | null,
                                                                                 medical_token:
                                                                                     c
                                                                                         .pivot
@@ -1287,6 +1441,11 @@ export default function Show({
                                                                                     c
                                                                                         .pivot
                                                                                         ?.e_number ||
+                                                                                    "",
+                                                                                hospital_address:
+                                                                                    c
+                                                                                        .pivot
+                                                                                        ?.hospital_address ||
                                                                                     "",
                                                                             },
                                                                         );
@@ -1429,30 +1588,48 @@ export default function Show({
                                                                         </button>
                                                                         {c.pivot
                                                                             ?.medical_token && (
-                                                                            <button
-                                                                                onClick={() => {
-                                                                                    // بما أننا تحققنا بالخارج، التوكن هنا مضمون وجوده بنسبة 100%
-                                                                                    const token =
-                                                                                        c.pivot?.medical_token?.trimStart() ??
-                                                                                        "";
+                                                                            <>
+                                                                                <button
+                                                                                    onClick={() => {
+                                                                                        // بما أننا تحققنا بالخارج، التوكن هنا مضمون وجوده بنسبة 100%
+                                                                                        const token =
+                                                                                            c.pivot?.medical_token?.trimStart() ??
+                                                                                            "";
 
-                                                                                    if (
-                                                                                        token
-                                                                                    ) {
-                                                                                        window.open(
-                                                                                            `https://wafid.com/appointment/${token}/pay/`,
-                                                                                            "_blank",
-                                                                                        );
+                                                                                        if (
+                                                                                            token
+                                                                                        ) {
+                                                                                            window.open(
+                                                                                                `https://wafid.com/appointment/${token}/pay/`,
+                                                                                                "_blank",
+                                                                                            );
+                                                                                        }
+                                                                                    }}
+                                                                                    className="w-full flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-lg text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition text-right"
+                                                                                >
+                                                                                    <Stethoscope className="w-4 h-4 text-zinc-400" />
+                                                                                    دفع
+                                                                                    رسوم
+                                                                                    الكشف
+                                                                                    الطبي
+                                                                                </button>
+                                                                                <button
+                                                                                    onClick={() =>
+                                                                                        handleViewMedicalResult(
+                                                                                            c,
+                                                                                        )
                                                                                     }
-                                                                                }}
-                                                                                className="w-full flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-lg text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition text-right"
-                                                                            >
-                                                                                <Stethoscope className="w-4 h-4 text-zinc-400" />
-                                                                                دفع
-                                                                                رسوم
-                                                                                الكشف
-                                                                                الطبي
-                                                                            </button>
+                                                                                    className="w-full flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-lg text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition text-right"
+                                                                                >
+                                                                                    <Stethoscope className="w-4 h-4 text-zinc-400" />
+                                                                                    <span>
+                                                                                        عرض
+                                                                                        نتيجة
+                                                                                        الكشف
+                                                                                        الطبي
+                                                                                    </span>
+                                                                                </button>
+                                                                            </>
                                                                         )}
                                                                     </div>
                                                                 </div>
@@ -1651,15 +1828,23 @@ export default function Show({
                                         الكشف الطبي
                                     </label>
                                     <select
-                                        value={data.medical_status || "booked"}
+                                        value={data.medical_status ?? ""}
                                         onChange={(e) =>
                                             setData(
                                                 "medical_status",
-                                                e.target.value,
+                                                e.target.value === ""
+                                                    ? null
+                                                    : (e.target.value as
+                                                          | "booked"
+                                                          | "fit"
+                                                          | "unfit"),
                                             )
                                         }
                                         className="w-full text-sm border border-zinc-200 dark:border-zinc-750 bg-white dark:bg-zinc-900 rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition text-zinc-800 dark:text-zinc-200"
                                     >
+                                        <option value="">
+                                            في انتظار الحجز
+                                        </option>
                                         <option value="booked">تم الحجز</option>
                                         <option value="fit">لائق طبياً</option>
                                         <option value="unfit">غير لائق</option>
@@ -1747,6 +1932,25 @@ export default function Show({
                                     dir="ltr"
                                 />
                             </div>
+
+                            {/* حقل عنوان المستشفى الجديد */}
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+                                    عنوان المستشفى
+                                </label>
+                                <textarea
+                                    placeholder="أدخل عنوان المستشفى"
+                                    rows={3} // عدد الأسطر الافتراضية
+                                    value={data.hospital_address || ""}
+                                    onChange={(e) =>
+                                        setData(
+                                            "hospital_address",
+                                            e.target.value,
+                                        )
+                                    }
+                                    className="w-full text-sm border border-zinc-200 dark:border-zinc-750 bg-white dark:bg-zinc-900 rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition text-zinc-800 dark:text-zinc-200 resize-none"
+                                />
+                            </div>
                         </div>
 
                         {/* أزرار التحكم */}
@@ -1789,7 +1993,7 @@ export default function Show({
                 </div>
             )}
 
-            {/* ===== MOVE/ADD TO GROUP MODAL ===== */}
+            {/* ===== MOVE/ADD TO bag MODAL ===== */}
             {isMoveModalOpen && (
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                     <div

@@ -10,3 +10,4 @@ Route::get('/user', function (Request $request) {
 // /api/send-engaz
 Route::post('/send-engaz', [ApiController::class, 'sendEngaz']);
 Route::post('/token/check-medical', [ApiController::class, 'checkMedical']);
+Route::post('/store-medical-result', [ApiController::class, 'storeMedicalResult']);
