@@ -338,7 +338,6 @@ export default function Show({
         const selectedCustomers = customers.filter((c) =>
             selectedIds.includes(c.id),
         );
-        console.log("العملاء المحددين لحجز النت:", selectedCustomers);
 
         // مصفوفة لتجميع الأخطاء إن وجدت
         let validationErrors: { customerName: string; fields: string[] }[] = [];
@@ -424,7 +423,7 @@ export default function Show({
                 VisaKind:
                     {
                         work_temp_hajj_umrah:
-                            "تأشيرة العمل المؤقت للحج والعمرة",
+                            "تأشيرة العمل المؤقت لخدمات الحج والعمرة",
                         work: "عمل",
                         temporary_work: "عمل مؤقت",
                     }[visa?.type] || "غير محدد",
@@ -636,7 +635,6 @@ export default function Show({
         payload.customer_id = customer.id;
         payload.group_id = group.id;
 
-        // 3. إرسال البيانات إلى السيرفر
         // 3. إرسال البيانات إلى السيرفر
         try {
             const res = await fetch("http://localhost:3000/api/wafid", {

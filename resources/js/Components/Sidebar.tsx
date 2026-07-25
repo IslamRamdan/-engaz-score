@@ -38,12 +38,19 @@ export default function Sidebar({
     };
 
     const menuItems = [
-        { href: "/dashboard", label: "لوحة التحكم", icon: "🏠", hasDot: false }, // أيقونة رئيسية أو لوحة تحكم
+        // موظف يمثل الموظف
+        { href: "/dashboard", label: "لوحة التحكم", icon: "🏠", hasDot: false },
+        {
+            href: "/search",
+            label: "بحث متقدم",
+            icon: "🔍",
+            hasDot: true,
+        },
+        { href: "/customers", label: "العملاء", icon: "👤", hasDot: true }, // مستخدم مفرد يمثل العميل
+        { href: "/groups", label: "المجموعات", icon: "👥", hasDot: true }, // مستخدمين متعددين يمثلون المجموعة
         { href: "/delegates", label: "المناديب", icon: "💼", hasDot: true }, // حقيبة عمل تمثل المندوب أو الوكيل
         { href: "/sponsors", label: "الكفلاء", icon: "🏢", hasDot: false }, // مبنى أو شركة تمثل جهة الكفالة
         { href: "/visas", label: "التأشيرات", icon: "📄", hasDot: true }, // مستند يمثل الفيزا/التأشيرة
-        { href: "/customers", label: "العملاء", icon: "👤", hasDot: true }, // مستخدم مفرد يمثل العميل
-        { href: "/groups", label: "المجموعات", icon: "👥", hasDot: true }, // مستخدمين متعددين يمثلون المجموعة
         { href: "/bags", label: "الحقائب", icon: "🧳", hasDot: true }, // حقيبة سفر تمثل الحقائب أو الأمتعة
         { href: "/employees", label: "الموظفين", icon: "👨‍💼", hasDot: true }, // موظف يمثل الموظف
     ];

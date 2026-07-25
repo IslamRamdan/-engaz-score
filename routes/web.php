@@ -113,7 +113,15 @@ Route::middleware(['auth'])->group(function () {
     // تاريخ المندوبين لكل عميل
     Route::get('/customers/delegate/{id}', [CustomerController::class, 'delegate_history'])
         ->name('customer.delegate_history');
+
+    Route::get('/search', [CustomerController::class, 'search'])
+        ->name('customers.search');
+
+    // فنكشن البحث نفسه (بيرجع JSON)
+    Route::get('/customers/search/results', [CustomerController::class, 'search_results'])
+        ->name('customers.search.results');
 });
+
 
 Route::post('/customers/extract-passport', [CustomerController::class, 'extractPassport'])
     ->name('customers.extract-passport');

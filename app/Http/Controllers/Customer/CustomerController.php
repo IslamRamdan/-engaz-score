@@ -14,6 +14,7 @@ use Inertia\Inertia;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
+use Inertia\Response;
 
 class CustomerController extends Controller
 {
@@ -500,5 +501,51 @@ PROMPT;
             Log::error('Passport extraction failed', ['message' => $e->getMessage()]);
             return response()->json(['error' => 'حدث خطأ غير متوقع أثناء استخراج البيانات'], 500);
         }
+    }
+
+    public function search(): Response
+    {
+        return Inertia::render('Customers/Search');
+    }
+
+    public function search_results(Request $request)
+    {
+        $search = trim((string) $request->input('search', ''));
+
+        if ($search === '') {
+            return response()->json([
+                'data' => [],
+                'total' => 0,
+            ]);
+        }
+
+        $companyId = auth()->user()->company_id;
+
+        $customers = Customer::query()
+            ->where('company_id', $companyId)
+            ->select([
+                'id',
+                'name_ar',
+                'name_en',
+                'personal_image',
+                'passport_number',
+                'national_id',
+                'phone',
+                'whatsapp',
+            ])
+            ->where(function ($q) use ($search) {
+                $q->where('name_ar', 'like', "%{$search}%")
+                    ->orWhere('name_en', 'like', "%{$search}%")
+                    ->orWhere('passport_number', 'like', "%{$search}%")
+                    ->orWhere('national_id', 'like', "%{$search}%");
+            })
+            ->latest()
+            ->limit(30)
+            ->get();
+
+        return response()->json([
+            'data' => $customers,
+            'total' => $customers->count(),
+        ]);
     }
 }
