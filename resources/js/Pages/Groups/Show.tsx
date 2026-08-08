@@ -1265,7 +1265,6 @@ export default function Show({
                                                                 c.phone && (
                                                                 <a
                                                                     href={`https://wa.me/${c.whatsapp.replace(/\+/g, "")}`}
-                                                                    target="_blank"
                                                                     rel="noreferrer"
                                                                     className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 transition"
                                                                     dir="ltr"
@@ -1494,7 +1493,6 @@ export default function Show({
                                                                 {c.phone && (
                                                                     <a
                                                                         href={`https://wa.me/${c.phone}`}
-                                                                        target="_blank"
                                                                         rel="noopener noreferrer"
                                                                         className="flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-lg text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition"
                                                                     >
@@ -1528,7 +1526,6 @@ export default function Show({
                                                                                         group.id,
                                                                                 },
                                                                             )} // تأكد من اسم متغير الـ group_id المتوفر لديك في الصفحة
-                                                                            target="_blank"
                                                                             rel="noreferrer"
                                                                             className="flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-lg text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
                                                                         >
@@ -1599,7 +1596,6 @@ export default function Show({
                                                                                         ) {
                                                                                             window.open(
                                                                                                 `https://wafid.com/appointment/${token}/pay/`,
-                                                                                                "_blank",
                                                                                             );
                                                                                         }
                                                                                     }}
@@ -1789,7 +1785,6 @@ export default function Show({
                             <a
                                 href={selectedImage}
                                 download="customer_image.png"
-                                target="_blank"
                                 rel="noreferrer"
                                 className="flex items-center gap-2 text-xs font-bold px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white active:scale-95 transition"
                             >
