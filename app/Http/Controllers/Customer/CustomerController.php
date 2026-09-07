@@ -191,14 +191,13 @@ class CustomerController extends Controller
      */
     public function index()
     {
-        $customers = Customer::with('latestDelegate')
+        $customers = Customer::with(['latestDelegate', 'groups'])
             ->where('company_id', auth()->user()->company_id)
             ->latest()
             ->get();
 
         $groups = Group::where('company_id', auth()->user()->company_id)->get();
 
-        // dd($customers[0]->latestDelegate); // اختبار جلب آخر مندوب لكل عميل
 
         return Inertia::render('Customers/Index', [
             'customers' => $customers,
@@ -353,7 +352,7 @@ class CustomerController extends Controller
             }
         });
 
-        return redirect()->route('customers.index')->with('success', 'تم تحديث بيانات العميل بنجاح وحذف الملفات السابقة');
+        return redirect()->back()->with('success', 'تم تحديث بيانات العميل بنجاح ');
     }
     public function show(Customer $customer)
     {
@@ -521,6 +520,9 @@ PROMPT;
 
         $companyId = auth()->user()->company_id;
 
+        // ننضّف نص البحث: نشيل أي مسافات أو أسطر جديدة أو رجوع أسطر
+        $cleanSearch = preg_replace('/\s+/', '', $search);
+
         $customers = Customer::query()
             ->where('company_id', $companyId)
             ->select([
@@ -532,12 +534,18 @@ PROMPT;
                 'national_id',
                 'phone',
                 'whatsapp',
+                'mrz',
             ])
-            ->where(function ($q) use ($search) {
+            ->where(function ($q) use ($search, $cleanSearch) {
                 $q->where('name_ar', 'like', "%{$search}%")
                     ->orWhere('name_en', 'like', "%{$search}%")
                     ->orWhere('passport_number', 'like', "%{$search}%")
-                    ->orWhere('national_id', 'like', "%{$search}%");
+                    ->orWhere('national_id', 'like', "%{$search}%")
+                    // نقارن نسخة منضفة من عمود mrz (بدون مسافات/أسطر) بنسخة منضفة من نص البحث
+                    ->orWhereRaw(
+                        "REPLACE(REPLACE(REPLACE(mrz, '\\n', ''), '\\r', ''), ' ', '') LIKE ?",
+                        ["%{$cleanSearch}%"]
+                    );
             })
             ->latest()
             ->limit(30)

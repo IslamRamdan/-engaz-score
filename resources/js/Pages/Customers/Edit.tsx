@@ -1,6 +1,13 @@
-import React, { useState, useRef, FormEvent } from "react";
+import React, { useState, useRef, useEffect, FormEvent } from "react";
 import { useForm, Head, Link } from "@inertiajs/react";
 import AppLayout from "@/Layouts/AppLayout";
+import ReactCrop, {
+    type Crop,
+    type PixelCrop,
+    centerCrop,
+    makeAspectCrop,
+} from "react-image-crop";
+import "react-image-crop/dist/ReactCrop.css";
 import {
     UploadCloud,
     X,
@@ -15,6 +22,8 @@ import {
     Stethoscope,
     FlaskConical,
     Wifi,
+    Scissors,
+    Loader2,
 } from "lucide-react";
 
 interface Delegate {
@@ -115,6 +124,227 @@ function toDisplay(iso: string) {
     return `${d}/${m}/${y}`;
 }
 
+// ─── دالة مساعدة: تحويل منطقة الاقتصاص لملف صورة حقيقي ─────────────────────
+async function getCroppedFile(
+    image: HTMLImageElement,
+    pixelCrop: PixelCrop,
+    fileName: string,
+    mimeType: string,
+): Promise<File> {
+    // نسبة تحويل من مقاس الصورة المعروضة على الشاشة لمقاسها الحقيقي
+    const scaleX = image.naturalWidth / image.width;
+    const scaleY = image.naturalHeight / image.height;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.floor(pixelCrop.width * scaleX);
+    canvas.height = Math.floor(pixelCrop.height * scaleY);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Canvas context not available");
+
+    ctx.drawImage(
+        image,
+        pixelCrop.x * scaleX,
+        pixelCrop.y * scaleY,
+        pixelCrop.width * scaleX,
+        pixelCrop.height * scaleY,
+        0,
+        0,
+        canvas.width,
+        canvas.height,
+    );
+
+    return new Promise((resolve, reject) => {
+        canvas.toBlob((blob) => {
+            if (!blob) {
+                reject(new Error("فشل إنشاء الصورة"));
+                return;
+            }
+            resolve(new File([blob], fileName, { type: mimeType }));
+        }, mimeType);
+    });
+}
+
+// ─── مودال الاقتصاص الحر بالماوس (react-image-crop) ─────────────────────────
+function ImageCropModal({
+    file,
+    onCancel,
+    onConfirm,
+}: {
+    file: File;
+    onCancel: () => void;
+    onConfirm: (cropped: File) => void;
+}) {
+    const [imgUrl, setImgUrl] = useState<string>("");
+    const [crop, setCrop] = useState<Crop>();
+    const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
+    const [aspect, setAspect] = useState<number | undefined>(undefined); // undefined = حرية كاملة بدون نسبة ثابتة
+    const [isSaving, setIsSaving] = useState(false);
+    const imgRef = useRef<HTMLImageElement | null>(null);
+
+    useEffect(() => {
+        const url = URL.createObjectURL(file);
+        setImgUrl(url);
+        return () => URL.revokeObjectURL(url);
+    }, [file]);
+
+    // عند تحميل الصورة: منطقة اقتصاص افتراضية تغطي 90% منها، والمستخدم يعدّلها بحرية بالماوس
+    const onImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+        const { width, height } = e.currentTarget;
+        setCrop(
+            centerCrop(
+                { unit: "%", width: 90, height: 90, x: 5, y: 5 },
+                width,
+                height,
+            ),
+        );
+    };
+
+    // تبديل نسبة العرض للطول (أو "حر" بدون قيد)
+    const applyAspect = (newAspect: number | undefined) => {
+        setAspect(newAspect);
+        if (imgRef.current && newAspect) {
+            const { width, height } = imgRef.current;
+            setCrop(
+                centerCrop(
+                    makeAspectCrop(
+                        { unit: "%", width: 90 },
+                        newAspect,
+                        width,
+                        height,
+                    ),
+                    width,
+                    height,
+                ),
+            );
+        }
+    };
+
+    const handleConfirm = async () => {
+        if (!completedCrop || !imgRef.current) return;
+        setIsSaving(true);
+        try {
+            const croppedFile = await getCroppedFile(
+                imgRef.current,
+                completedCrop,
+                file.name,
+                file.type || "image/png",
+            );
+            onConfirm(croppedFile);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    if (!imgUrl) return null;
+
+    return (
+        <div
+            className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-6"
+            onClick={onCancel}
+        >
+            <div
+                className="bg-white dark:bg-zinc-900 rounded-2xl p-5 space-y-4 max-w-2xl w-full"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-black text-zinc-800 dark:text-zinc-100">
+                        اقتصاص الصورة
+                    </h3>
+                    {/* أزرار اختيار نسبة الاقتصاص */}
+                    <div className="flex items-center gap-1.5">
+                        <button
+                            type="button"
+                            onClick={() => applyAspect(undefined)}
+                            className={`px-2.5 py-1 rounded-lg text-[10px] font-black transition-colors ${
+                                aspect === undefined
+                                    ? "bg-emerald-600 text-white"
+                                    : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400"
+                            }`}
+                        >
+                            حر
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => applyAspect(1)}
+                            className={`px-2.5 py-1 rounded-lg text-[10px] font-black transition-colors ${
+                                aspect === 1
+                                    ? "bg-emerald-600 text-white"
+                                    : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400"
+                            }`}
+                        >
+                            1:1
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => applyAspect(4 / 3)}
+                            className={`px-2.5 py-1 rounded-lg text-[10px] font-black transition-colors ${
+                                aspect === 4 / 3
+                                    ? "bg-emerald-600 text-white"
+                                    : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400"
+                            }`}
+                        >
+                            4:3
+                        </button>
+                    </div>
+                </div>
+
+                {/* منطقة الكروب - قابلة للسحب والتحجيم بالماوس بحرية كاملة (سحب الحواف والأركان) */}
+                {/* منطقة الكروب - الصورة كاملة ظاهرة دايمًا بدون قص أو حاجة لعمل سكرول */}
+                <div className="bg-zinc-900 rounded-xl flex items-center justify-center p-2">
+                    <ReactCrop
+                        crop={crop}
+                        onChange={(_, percentCrop) => setCrop(percentCrop)}
+                        onComplete={(c) => setCompletedCrop(c)}
+                        aspect={aspect}
+                    >
+                        {/* eslint-disable-next-line jsx-a11y/alt-text */}
+                        <img
+                            ref={imgRef}
+                            src={imgUrl}
+                            onLoad={onImageLoad}
+                            style={{
+                                maxHeight: "70vh",
+                                maxWidth: "100%",
+                                width: "auto",
+                                height: "auto",
+                                display: "block",
+                            }}
+                        />
+                    </ReactCrop>
+                </div>
+
+                <div className="flex gap-3 justify-end pt-2">
+                    <button
+                        type="button"
+                        onClick={onCancel}
+                        disabled={isSaving}
+                        className="px-4 py-2 rounded-xl text-xs font-bold bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 disabled:opacity-50"
+                    >
+                        إلغاء
+                    </button>
+                    <button
+                        type="button"
+                        onClick={handleConfirm}
+                        disabled={isSaving || !completedCrop}
+                        className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 inline-flex items-center gap-2"
+                    >
+                        {isSaving ? (
+                            <>
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                جاري الحفظ...
+                            </>
+                        ) : (
+                            "تأكيد الاقتصاص"
+                        )}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // ─── مكوّن صف الصورة ──────────────────────────────────────────────────────────
 function ImageRow({
     label,
@@ -132,6 +362,7 @@ function ImageRow({
     icon: React.ElementType;
 }) {
     const [preview, setPreview] = useState<string | null>(null);
+    const [showCropModal, setShowCropModal] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -156,6 +387,7 @@ function ImageRow({
 
     const thumbUrl = preview ?? (current ? `/storage/${current}` : null);
     const isPdf = value && !value.type.startsWith("image/");
+    const canCrop = value && value.type.startsWith("image/");
 
     return (
         <div className="border border-zinc-100 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-zinc-900/60">
@@ -212,6 +444,16 @@ function ImageRow({
                             onChange={handleChange}
                         />
                     </label>
+                    {canCrop && (
+                        <button
+                            type="button"
+                            onClick={() => setShowCropModal(true)}
+                            className="flex items-center justify-center gap-1.5 text-[10px] font-black text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 rounded-lg px-2.5 py-1.5 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors whitespace-nowrap"
+                        >
+                            <Scissors className="w-3 h-3" />
+                            اقتصاص
+                        </button>
+                    )}
                     {(value || current) && (
                         <button
                             type="button"
@@ -227,6 +469,19 @@ function ImageRow({
                 <p className="text-[10px] text-red-500 font-bold px-3 pb-2 mt-1">
                     {error}
                 </p>
+            )}
+
+            {showCropModal && value && (
+                <ImageCropModal
+                    file={value}
+                    onCancel={() => setShowCropModal(false)}
+                    onConfirm={(cropped) => {
+                        if (preview) URL.revokeObjectURL(preview);
+                        setPreview(URL.createObjectURL(cropped));
+                        onChange(cropped);
+                        setShowCropModal(false);
+                    }}
+                />
             )}
         </div>
     );

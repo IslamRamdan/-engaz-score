@@ -214,9 +214,15 @@ export default function Search() {
 
                                     {/* الاسم */}
                                     <div className="w-48 flex-shrink-0">
-                                        <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                                        <Link
+                                            href={route(
+                                                "customers.show",
+                                                customer.id,
+                                            )}
+                                            className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors block"
+                                        >
                                             {customer.name_ar}
-                                        </p>
+                                        </Link>
                                         {customer.name_en && (
                                             <p className="text-xs text-zinc-400">
                                                 {customer.name_en}
@@ -253,8 +259,19 @@ export default function Search() {
                                             {customer.phone ?? "—"}
                                         </div>
                                         <div className="flex items-center gap-1.5 text-sm text-zinc-600 dark:text-zinc-300">
-                                            <MessageCircle className="h-3.5 w-3.5 text-emerald-500" />
-                                            {customer.whatsapp ?? "—"}
+                                            <MessageCircle className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                                            {customer.whatsapp ? (
+                                                <a
+                                                    href={`https://wa.me/${customer.whatsapp.replace(/[^0-9]/g, "")}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="hover:text-emerald-500 hover:underline transition-colors"
+                                                >
+                                                    {customer.whatsapp}
+                                                </a>
+                                            ) : (
+                                                <span>—</span>
+                                            )}
                                         </div>
                                     </div>
                                 </Link>

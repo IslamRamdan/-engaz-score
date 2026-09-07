@@ -24,7 +24,9 @@ class CompanyRegisterController extends Controller
      * تسجيل شركة + إنشاء أول مستخدم (Owner)
      */
     public function store(Request $request)
+
     {
+        dd($request->all());
         $request->validate([
             // بيانات الشركة
             'company_name' => 'required|string|max:255',
@@ -35,11 +37,13 @@ class CompanyRegisterController extends Controller
             'email'        => 'required|email|unique:users,email',
             'phone'        => 'nullable|string|max:20',
             'password'     => 'required|string|min:6|confirmed',
+            'country'      => 'nullable|string|max:255',
         ], [
             'company_name.required' => 'حقل اسم الشركة مطلوب ولا يمكن تركه فارغاً.',
             'company_name.max'      => 'يجب ألا يتجاوز اسم الشركة 255 حرفاً.',
 
             'city.max'              => 'يجب ألا يتجاوز اسم المدينة 255 حرفاً.',
+            'country.max'           => 'يجب ألا يتجاوز اسم الدولة 255 حرفاً.',
 
             'name.required'         => 'حقل اسم المسؤول مطلوب.',
             'name.max'              => 'يجب ألا يتجاوز اسم المسؤول 255 حرفاً.',
@@ -63,6 +67,7 @@ class CompanyRegisterController extends Controller
             $company = Company::create([
                 'name'    => $request->company_name,
                 'city'    => $request->city,
+                'country' => $request->country,
             ]);
 
             // 2. إنشاء المستخدم (Owner)

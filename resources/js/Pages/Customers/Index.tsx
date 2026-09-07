@@ -29,6 +29,7 @@ interface Customer {
     personal_image: string | null;
     latest_delegate?: { id: number; name: string }[] | null;
     created_at: string;
+    groups?: Group[];
 }
 
 interface Group {
@@ -259,6 +260,9 @@ export default function Index({ customers = [], groups = [] }: Props) {
                                     </th>
                                     <th className="p-4 text-center">المندوب</th>
                                     <th className="p-4 text-center">
+                                        المجموعات
+                                    </th>
+                                    <th className="p-4 text-center">
                                         تاريخ التسجيل
                                     </th>
                                     <th className="p-4 pl-6 text-left">
@@ -325,9 +329,15 @@ export default function Index({ customers = [], groups = [] }: Props) {
                                                         )}
                                                     </div>
                                                     <div>
-                                                        <p className="font-bold text-zinc-900 dark:text-zinc-100 text-sm">
+                                                        <Link
+                                                            href={route(
+                                                                "customers.show",
+                                                                customer.id,
+                                                            )}
+                                                            className="font-bold text-zinc-900 dark:text-zinc-100 text-sm hover:text-blue-600 dark:hover:text-blue-400 transition-colors block"
+                                                        >
                                                             {customer.name_ar}
-                                                        </p>
+                                                        </Link>
                                                         <p className="text-[10px] text-zinc-400 dark:text-zinc-500 font-bold">
                                                             #{customer.id}
                                                         </p>
@@ -395,6 +405,31 @@ export default function Index({ customers = [], groups = [] }: Props) {
                                                 ) : (
                                                     <span className="text-zinc-400 dark:text-zinc-600 italic text-xs">
                                                         لا يوجد مندوب
+                                                    </span>
+                                                )}
+                                            </td>
+
+                                            {/* المجموعات */}
+                                            <td className="p-4 whitespace-nowrap text-center">
+                                                {customer.groups &&
+                                                customer.groups.length > 0 ? (
+                                                    <div className="flex flex-wrap items-center justify-center gap-1 max-w-[200px] mx-auto">
+                                                        {customer.groups.map(
+                                                            (group) => (
+                                                                <span
+                                                                    key={
+                                                                        group.id
+                                                                    }
+                                                                    className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50"
+                                                                >
+                                                                    {group.name}
+                                                                </span>
+                                                            ),
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-zinc-400 dark:text-zinc-600 italic text-xs">
+                                                        لا ينتمي لمجموعة
                                                     </span>
                                                 )}
                                             </td>

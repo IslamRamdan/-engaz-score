@@ -1,8 +1,13 @@
 import React, { useState, useRef, useCallback, useEffect } from "react";
 import AppLayout from "@/Layouts/AppLayout";
 import { Head, useForm, Link } from "@inertiajs/react";
-import Cropper from "react-easy-crop";
-import type { Area } from "react-easy-crop";
+import ReactCrop, {
+    type Crop,
+    type PixelCrop,
+    centerCrop,
+    makeAspectCrop,
+} from "react-image-crop";
+import "react-image-crop/dist/ReactCrop.css";
 import {
     UserPlus,
     ChevronLeft,
@@ -11,7 +16,6 @@ import {
     CheckCircle2,
     MapPin,
     CreditCard,
-    Stethoscope,
     UploadCloud,
     User,
     FileImage,
@@ -31,35 +35,31 @@ interface Props {
 
 // ─── دالة مساعدة: تحويل الاقتصاص لملف حقيقي ────────────────────────────
 async function getCroppedFile(
-    imageSrc: string,
-    croppedAreaPixels: Area,
+    image: HTMLImageElement,
+    pixelCrop: PixelCrop,
     fileName: string,
     mimeType: string,
 ): Promise<File> {
-    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
-        const img = new Image();
-        img.crossOrigin = "anonymous";
-        img.onload = () => resolve(img);
-        img.onerror = reject;
-        img.src = imageSrc;
-    });
+    // نسبة تحويل من مقاس الصورة المعروضة على الشاشة لمقاسها الحقيقي
+    const scaleX = image.naturalWidth / image.width;
+    const scaleY = image.naturalHeight / image.height;
 
     const canvas = document.createElement("canvas");
-    canvas.width = croppedAreaPixels.width;
-    canvas.height = croppedAreaPixels.height;
+    canvas.width = Math.floor(pixelCrop.width * scaleX);
+    canvas.height = Math.floor(pixelCrop.height * scaleY);
     const ctx = canvas.getContext("2d");
     if (!ctx) throw new Error("Canvas context not available");
 
     ctx.drawImage(
         image,
-        croppedAreaPixels.x,
-        croppedAreaPixels.y,
-        croppedAreaPixels.width,
-        croppedAreaPixels.height,
+        pixelCrop.x * scaleX,
+        pixelCrop.y * scaleY,
+        pixelCrop.width * scaleX,
+        pixelCrop.height * scaleY,
         0,
         0,
-        croppedAreaPixels.width,
-        croppedAreaPixels.height,
+        canvas.width,
+        canvas.height,
     );
 
     return new Promise((resolve, reject) => {
@@ -84,12 +84,11 @@ function ImageCropModal({
     onConfirm: (cropped: File) => void;
 }) {
     const [imgUrl, setImgUrl] = useState<string>("");
-    const [crop, setCrop] = useState({ x: 0, y: 0 });
-    const [zoom, setZoom] = useState(1);
-    const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(
-        null,
-    );
+    const [crop, setCrop] = useState<Crop>();
+    const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
+    const [aspect, setAspect] = useState<number | undefined>(undefined); // undefined = حرية كاملة بدون نسبة ثابتة
     const [isSaving, setIsSaving] = useState(false);
+    const imgRef = useRef<HTMLImageElement | null>(null);
 
     useEffect(() => {
         const url = URL.createObjectURL(file);
@@ -97,17 +96,45 @@ function ImageCropModal({
         return () => URL.revokeObjectURL(url);
     }, [file]);
 
-    const onCropComplete = useCallback((_area: Area, areaPixels: Area) => {
-        setCroppedAreaPixels(areaPixels);
-    }, []);
+    // عند تحميل الصورة: منطقة اقتصاص افتراضية تغطي 90% من الصورة، والمستخدم يعدّلها بحرية بالماوس
+    const onImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+        const { width, height } = e.currentTarget;
+        setCrop(
+            centerCrop(
+                { unit: "%", width: 90, height: 90, x: 5, y: 5 },
+                width,
+                height,
+            ),
+        );
+    };
+
+    // تبديل نسبة العرض للطول (أو "حر" بدون قيد)
+    const applyAspect = (newAspect: number | undefined) => {
+        setAspect(newAspect);
+        if (imgRef.current && newAspect) {
+            const { width, height } = imgRef.current;
+            setCrop(
+                centerCrop(
+                    makeAspectCrop(
+                        { unit: "%", width: 90 },
+                        newAspect,
+                        width,
+                        height,
+                    ),
+                    width,
+                    height,
+                ),
+            );
+        }
+    };
 
     const handleConfirm = async () => {
-        if (!croppedAreaPixels || !imgUrl) return;
+        if (!completedCrop || !imgRef.current) return;
         setIsSaving(true);
         try {
             const croppedFile = await getCroppedFile(
-                imgUrl,
-                croppedAreaPixels,
+                imgRef.current,
+                completedCrop,
                 file.name,
                 file.type || "image/png",
             );
@@ -130,37 +157,65 @@ function ImageCropModal({
                 className="bg-white dark:bg-zinc-900 rounded-2xl p-5 space-y-4 max-w-2xl w-full"
                 onClick={(e) => e.stopPropagation()}
             >
-                <h3 className="text-sm font-black text-zinc-800 dark:text-zinc-100">
-                    اقتصاص الصورة
-                </h3>
-
-                {/* منطقة الكروب - لازم ارتفاع ثابت وposition relative */}
-                <div className="relative w-full h-[400px] bg-zinc-900 rounded-xl overflow-hidden">
-                    <Cropper
-                        image={imgUrl}
-                        crop={crop}
-                        zoom={zoom}
-                        aspect={1}
-                        onCropChange={setCrop}
-                        onZoomChange={setZoom}
-                        onCropComplete={onCropComplete}
-                    />
+                <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-black text-zinc-800 dark:text-zinc-100">
+                        اقتصاص الصورة
+                    </h3>
+                    {/* أزرار اختيار نسبة الاقتصاص */}
+                    <div className="flex items-center gap-1.5">
+                        <button
+                            type="button"
+                            onClick={() => applyAspect(undefined)}
+                            className={`px-2.5 py-1 rounded-lg text-[10px] font-black transition-colors ${
+                                aspect === undefined
+                                    ? "bg-emerald-600 text-white"
+                                    : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400"
+                            }`}
+                        >
+                            حر
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => applyAspect(1)}
+                            className={`px-2.5 py-1 rounded-lg text-[10px] font-black transition-colors ${
+                                aspect === 1
+                                    ? "bg-emerald-600 text-white"
+                                    : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400"
+                            }`}
+                        >
+                            1:1
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => applyAspect(4 / 3)}
+                            className={`px-2.5 py-1 rounded-lg text-[10px] font-black transition-colors ${
+                                aspect === 4 / 3
+                                    ? "bg-emerald-600 text-white"
+                                    : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400"
+                            }`}
+                        >
+                            4:3
+                        </button>
+                    </div>
                 </div>
 
-                {/* شريط التكبير */}
-                <div className="flex items-center gap-3">
-                    <span className="text-[10px] font-black text-zinc-500 dark:text-zinc-400 shrink-0">
-                        تكبير
-                    </span>
-                    <input
-                        type="range"
-                        min={1}
-                        max={3}
-                        step={0.1}
-                        value={zoom}
-                        onChange={(e) => setZoom(Number(e.target.value))}
-                        className="w-full accent-emerald-600"
-                    />
+                {/* منطقة الكروب - قابلة للسحب والتحجيم بالماوس بحرية كاملة (سحب الحواف والأركان) */}
+                <div className="max-h-[500px] overflow-auto bg-zinc-900 rounded-xl flex items-center justify-center p-2">
+                    <ReactCrop
+                        crop={crop}
+                        onChange={(_, percentCrop) => setCrop(percentCrop)}
+                        onComplete={(c) => setCompletedCrop(c)}
+                        aspect={aspect}
+                        className="max-w-full"
+                    >
+                        {/* eslint-disable-next-line jsx-a11y/alt-text */}
+                        <img
+                            ref={imgRef}
+                            src={imgUrl}
+                            onLoad={onImageLoad}
+                            className="max-h-[480px] w-auto"
+                        />
+                    </ReactCrop>
                 </div>
 
                 <div className="flex gap-3 justify-end pt-2">
@@ -175,7 +230,7 @@ function ImageCropModal({
                     <button
                         type="button"
                         onClick={handleConfirm}
-                        disabled={isSaving || !croppedAreaPixels}
+                        disabled={isSaving || !completedCrop}
                         className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 inline-flex items-center gap-2"
                     >
                         {isSaving ? (

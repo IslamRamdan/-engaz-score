@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import AppLayout from "@/Layouts/AppLayout";
 
 // ─── الأنواع (Types) - مطابقة لهيكل البيانات الفعلي القادم من الـ API ────────
@@ -64,26 +64,13 @@ export default function NominationCard({
     customer,
     jobs,
 }: NominationCardProps) {
-    // حالة "إعادة طباعة" ورقم الوكالة (بديل الـ prompt/confirm الأصلية)
+    // حالة "إعادة طباعة" ورقم الوكالة (بدل الـ prompt/confirm الأصلية - دلوقتي عبارة عن إنبوتس عادية فوق الصفحة)
     const [isReprint, setIsReprint] = useState(false);
     const [agencyNumber, setAgencyNumber] = useState("");
 
     // حالة التوقيع
     const [signatureText, setSignatureText] = useState("");
     const [savedSignature, setSavedSignature] = useState<string | null>(null);
-
-    useEffect(() => {
-        const agency = window.prompt("من فضلك أدخل رقم الوكالة:");
-        if (agency) {
-            setAgencyNumber(agency);
-        }
-
-        const wantsReprint = window.confirm(
-            "هل تريد إعادة طباعة؟\nاضغط 'موافق' لإعادة الطباعة، أو 'إلغاء' لبطاقة عادية.",
-        );
-        setIsReprint(wantsReprint);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
 
     const handleSaveSignature = () => {
         if (signatureText.trim() === "") {
@@ -253,6 +240,43 @@ export default function NominationCard({
                     background-color: #45a049;
                 }
 
+                .nomination-controls-bar {
+                    max-width: 210mm;
+                    margin: 0 auto 15px;
+                    display: flex;
+                    align-items: center;
+                    gap: 20px;
+                    background: white;
+                    border: 1px solid #ddd;
+                    border-radius: 8px;
+                    padding: 12px 16px;
+                    direction: rtl;
+                    font-family: 'Arial', sans-serif;
+                }
+
+                .nomination-controls-bar label {
+                    font-size: 14px;
+                    font-weight: bold;
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                    white-space: nowrap;
+                }
+
+                .nomination-controls-bar input[type="text"] {
+                    padding: 6px 10px;
+                    border: 1px solid #ccc;
+                    border-radius: 5px;
+                    font-size: 14px;
+                    width: 160px;
+                }
+
+                .nomination-controls-bar input[type="checkbox"] {
+                    width: 16px;
+                    height: 16px;
+                    cursor: pointer;
+                }
+
                 @media print {
                     body {
                         margin: 0;
@@ -286,6 +310,30 @@ export default function NominationCard({
             >
                 طباعة الاستمارة
             </button>
+
+            {/* شريط الإدخالات - بديل الـ prompt/confirm، ومخفي بالكامل عند الطباعة */}
+            <div className="nomination-controls-bar no-print">
+                <label htmlFor="agency-number-input">
+                    رقم الوكالة:
+                    <input
+                        id="agency-number-input"
+                        type="text"
+                        value={agencyNumber}
+                        onChange={(e) => setAgencyNumber(e.target.value)}
+                        placeholder="أدخل رقم الوكالة..."
+                    />
+                </label>
+
+                <label htmlFor="reprint-checkbox">
+                    <input
+                        id="reprint-checkbox"
+                        type="checkbox"
+                        checked={isReprint}
+                        onChange={(e) => setIsReprint(e.target.checked)}
+                    />
+                    إعادة طباعة
+                </label>
+            </div>
 
             <div className="nomination-page">
                 <img

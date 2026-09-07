@@ -13,6 +13,7 @@ import {
     Download,
     X,
     ChevronDown,
+    ChevronUp,
     MoreVertical,
     Eye,
     Edit,
@@ -124,6 +125,16 @@ type Props = {
     };
 };
 
+type SortField =
+    | "name_ar"
+    | "birth_date"
+    | "phone"
+    | "passport_number"
+    | "medical_status"
+    | "lab_status"
+    | "enet_status"
+    | null;
+
 export default function Show({
     group,
     customers,
@@ -146,6 +157,20 @@ export default function Show({
 
     const [isMoveModalOpen, setIsMoveModalOpen] = useState(false);
     const [targetBagId, setTargetBagId] = useState<number | "">("");
+
+    // ===== حالة الترتيب (Sorting) =====
+    const [sortField, setSortField] = useState<SortField>(null);
+    const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+
+    const handleSort = (field: SortField) => {
+        if (sortField === field) {
+            setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+        } else {
+            setSortField(field);
+            setSortDirection("asc");
+        }
+    };
+
     const { data, setData, put, processing, reset } = useForm<{
         medical_status: "booked" | "fit" | "unfit" | null;
         medical_token: string | null;
@@ -938,6 +963,89 @@ export default function Show({
         </span>
     );
 
+    // ===== رأس عمود قابل للترتيب =====
+    const SortableHeader = ({
+        field,
+        label,
+        align = "start",
+    }: {
+        field: NonNullable<SortField>;
+        label: string;
+        align?: "start" | "center";
+    }) => (
+        <button
+            onClick={() => handleSort(field)}
+            className={`flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-200 transition select-none w-full ${
+                align === "center" ? "justify-center" : "justify-start"
+            }`}
+        >
+            <span>{label}</span>
+            <span className="flex flex-col -space-y-1">
+                <ChevronUp
+                    className={`w-3 h-3 ${
+                        sortField === field && sortDirection === "asc"
+                            ? "text-emerald-500"
+                            : "text-zinc-300 dark:text-zinc-600"
+                    }`}
+                />
+                <ChevronDown
+                    className={`w-3 h-3 ${
+                        sortField === field && sortDirection === "desc"
+                            ? "text-emerald-500"
+                            : "text-zinc-300 dark:text-zinc-600"
+                    }`}
+                />
+            </span>
+        </button>
+    );
+
+    // ===== ترتيب العملاء بناءً على العمود والاتجاه المختارين =====
+    const sortedCustomers = [...customers].sort((a, b) => {
+        if (!sortField) return 0;
+
+        let valA: string | number = "";
+        let valB: string | number = "";
+
+        switch (sortField) {
+            case "name_ar":
+                valA = a.name_ar || "";
+                valB = b.name_ar || "";
+                break;
+            case "birth_date":
+                valA = a.birth_date ? new Date(a.birth_date).getTime() : 0;
+                valB = b.birth_date ? new Date(b.birth_date).getTime() : 0;
+                break;
+            case "phone":
+                valA = a.phone || "";
+                valB = b.phone || "";
+                break;
+            case "passport_number":
+                valA = a.passport_number || "";
+                valB = b.passport_number || "";
+                break;
+            case "medical_status":
+                valA = a.pivot?.medical_status || "";
+                valB = b.pivot?.medical_status || "";
+                break;
+            case "lab_status":
+                valA = a.pivot?.lab_status || "";
+                valB = b.pivot?.lab_status || "";
+                break;
+            case "enet_status":
+                valA = a.pivot?.enet_status || "";
+                valB = b.pivot?.enet_status || "";
+                break;
+        }
+
+        if (typeof valA === "number" && typeof valB === "number") {
+            return sortDirection === "asc" ? valA - valB : valB - valA;
+        }
+
+        return sortDirection === "asc"
+            ? String(valA).localeCompare(String(valB), "ar")
+            : String(valB).localeCompare(String(valA), "ar");
+    });
+
     return (
         <AppLayout>
             <Head title={`مجموعة ${group.name}`} />
@@ -1096,15 +1204,51 @@ export default function Show({
                                             )}
                                         </button>
                                     </th>
-                                    <th className="p-4 min-w-[200px]">الاسم</th>
-                                    <th className="p-4">السن</th>
-                                    <th className="p-4">الهاتف / واتساب</th>
-                                    <th className="p-4">رقم الجواز</th>
-                                    <th className="p-4 text-center">
-                                        الكشف الطبي
+                                    <th className="p-4 min-w-[200px]">
+                                        <SortableHeader
+                                            field="name_ar"
+                                            label="الاسم"
+                                        />
                                     </th>
-                                    <th className="p-4 text-center">المعامل</th>
-                                    <th className="p-4 text-center">إنجاز</th>
+                                    <th className="p-4">
+                                        <SortableHeader
+                                            field="birth_date"
+                                            label="السن"
+                                        />
+                                    </th>
+                                    <th className="p-4">
+                                        <SortableHeader
+                                            field="phone"
+                                            label="الهاتف / واتساب"
+                                        />
+                                    </th>
+                                    <th className="p-4">
+                                        <SortableHeader
+                                            field="passport_number"
+                                            label="رقم الجواز"
+                                        />
+                                    </th>
+                                    <th className="p-4 text-center">
+                                        <SortableHeader
+                                            field="medical_status"
+                                            label="الكشف الطبي"
+                                            align="center"
+                                        />
+                                    </th>
+                                    <th className="p-4 text-center">
+                                        <SortableHeader
+                                            field="lab_status"
+                                            label="المعامل"
+                                            align="center"
+                                        />
+                                    </th>
+                                    <th className="p-4 text-center">
+                                        <SortableHeader
+                                            field="enet_status"
+                                            label="إنجاز"
+                                            align="center"
+                                        />
+                                    </th>
                                     <th className="p-4 w-20 text-center">
                                         العمليات
                                     </th>
@@ -1112,7 +1256,7 @@ export default function Show({
                             </thead>
                             <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/60 text-sm">
                                 {customers.length > 0 ? (
-                                    customers.map((c) => {
+                                    sortedCustomers.map((c) => {
                                         const isSelected = selectedIds.includes(
                                             c.id,
                                         );
@@ -1207,9 +1351,17 @@ export default function Show({
                                                             </div>
                                                         )}
                                                         <div>
-                                                            <p className="font-bold text-zinc-900 dark:text-white">
+                                                            {/* جعل الاسم رابطًا ينقل إلى صفحة التفاصيل */}
+                                                            <Link
+                                                                href={route(
+                                                                    "customers.show",
+                                                                    c.id,
+                                                                )}
+                                                                className="font-bold text-zinc-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors block"
+                                                            >
                                                                 {c.name_ar}
-                                                            </p>
+                                                            </Link>
+
                                                             {c.name_en && (
                                                                 <p className="text-[11px] text-zinc-400 dark:text-zinc-500">
                                                                     {c.name_en}
