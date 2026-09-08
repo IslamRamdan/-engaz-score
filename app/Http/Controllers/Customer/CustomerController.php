@@ -15,6 +15,10 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use Inertia\Response;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
 
 class CustomerController extends Controller
 {
@@ -554,6 +558,110 @@ PROMPT;
         return response()->json([
             'data' => $customers,
             'total' => $customers->count(),
+        ]);
+    }
+
+    public function export(Request $request)
+    {
+        $request->validate([
+            'customer_ids'   => 'sometimes|array',
+            'customer_ids.*' => 'integer|exists:customers,id',
+            'group_id'       => 'sometimes|integer|exists:groups,id',
+        ]);
+
+        $companyId = auth()->user()->company_id;
+
+        $query = Customer::query()->where('company_id', $companyId);
+
+        if ($request->filled('customer_ids')) {
+            $query->whereIn('id', $request->input('customer_ids'));
+            $fileName = 'customers_selected_' . now()->format('Y-m-d_H-i') . '.xlsx';
+        } elseif ($request->filled('group_id')) {
+            $groupId = $request->input('group_id');
+            $query->whereHas('groups', fn($q) => $q->where('groups.id', $groupId));
+            $fileName = 'customers_group_' . $groupId . '_' . now()->format('Y-m-d_H-i') . '.xlsx';
+        } else {
+            $fileName = 'customers_all_' . now()->format('Y-m-d_H-i') . '.xlsx';
+        }
+
+        $customers = $query->orderBy('id')->get();
+
+        // ===== إنشاء ملف الإكسل =====
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setRightToLeft(true);
+
+        $headings = [
+            'الاسم بالعربي',
+            'الاسم بالإنجليزي',
+            'رقم الهاتف',
+            'واتساب',
+            'الجنس',
+            'الجنسية',
+            'الرقم القومي',
+            'تاريخ الميلاد',
+            'المحافظة',
+            'العنوان',
+            'رقم الجواز',
+            'مكان إصدار الجواز',
+            'تاريخ إصدار الجواز',
+            'تاريخ انتهاء الجواز',
+            'رقم التأشيرة',
+            'رقم إنجاز (E Number)',
+            'الحالة الاجتماعية',
+            'ملاحظات',
+        ];
+
+        // كتابة الهيدر
+        $sheet->fromArray($headings, null, 'A1');
+
+        // تنسيق الهيدر (بولد + خلفية)
+        $lastCol = chr(ord('A') + count($headings) - 1); // آخر عمود حرفياً
+        $sheet->getStyle("A1:{$lastCol}1")->getFont()->setBold(true);
+        $sheet->getStyle("A1:{$lastCol}1")->getFill()
+            ->setFillType(Fill::FILL_SOLID)
+            ->getStartColor()->setRGB('D9F2E6');
+        $sheet->getStyle("A1:{$lastCol}1")->getAlignment()
+            ->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+        // كتابة البيانات
+        $row = 2;
+        foreach ($customers as $customer) {
+            $sheet->fromArray([
+                $customer->name_ar,
+                $customer->name_en,
+                $customer->phone,
+                $customer->whatsapp,
+                $customer->gender,
+                $customer->nationality,
+                $customer->national_id,
+                $customer->birth_date ? $customer->birth_date->format('Y-m-d') : '',
+                $customer->governorate,
+                $customer->address,
+                $customer->passport_number,
+                $customer->passport_issue_place,
+                $customer->passport_issue_date ? $customer->passport_issue_date->format('Y-m-d') : '',
+                $customer->passport_expiry_date ? $customer->passport_expiry_date->format('Y-m-d') : '',
+                $customer->visa_number,
+                $customer->e_number,
+                $customer->marital_status,
+                $customer->notes,
+            ], null, "A{$row}");
+            $row++;
+        }
+
+        // ضبط عرض الأعمدة تلقائيًا
+        foreach (range('A', $lastCol) as $col) {
+            $sheet->getColumnDimension($col)->setAutoSize(true);
+        }
+
+        // ===== إخراج الملف مباشرة للمتصفح =====
+        $writer = new Xlsx($spreadsheet);
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $fileName, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         ]);
     }
 }

@@ -316,6 +316,28 @@ export default function Show({
         return age;
     };
 
+    const handleExportSelected = () => {
+        if (selectedIds.length === 0) {
+            Swal.fire({
+                icon: "warning",
+                title: "لم يتم تحديد أي عميل",
+                text: "اختر عميل واحد على الأقل قبل التصدير.",
+            });
+            return;
+        }
+
+        const params = new URLSearchParams();
+        selectedIds.forEach((id) =>
+            params.append("customer_ids[]", String(id)),
+        );
+
+        window.location.href = `${route("customers.export")}?${params.toString()}`;
+    };
+
+    // const handleExportGroup = () => {
+    //     window.location.href = `${route("customers.export")}?group_id=${group.id}`;
+    // };
+
     const medicalStatusMap: Record<
         NonNullable<MedicalStatus> | "default",
         { label: string; color: "emerald" | "red" | "zinc" | "amber" }
@@ -1115,6 +1137,13 @@ export default function Show({
                                     >
                                         <Archive className="w-4 h-4 text-emerald-500" />
                                         <span>حجز نت</span>
+                                    </button>
+                                    <button
+                                        onClick={handleExportSelected}
+                                        className="w-full flex items-center gap-2 px-4 py-3 text-right text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors"
+                                    >
+                                        <Download className="w-4 h-4 text-emerald-500" />
+                                        <span>تصدير المحددين Excel</span>
                                     </button>
                                 </div>
                             )}

@@ -87,6 +87,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
 Route::middleware(['auth'])->group(function () {
 
+    // استخراج اكسيل للعملاء المحددين
+    Route::get('/customers/export', [CustomerController::class, 'export'])
+        ->name('customers.export')
+        ->middleware('auth');
+
     // عرض كل العملاء
     Route::get('/customers', [CustomerController::class, 'index'])
         ->name('customers.index');
@@ -181,6 +186,9 @@ Route::middleware(['auth'])->group(function () {
 
     Route::delete('/employees/{id}', [EmployeeController::class, 'destroy'])->name('employees.destroy');
 });
+// Route::get('/customers/export', [CustomerController::class, 'export'])
+//     ->name('customers.export');
+
 
 
 require __DIR__ . '/auth.php';
