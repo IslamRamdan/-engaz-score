@@ -50,6 +50,10 @@ Route::middleware('auth')->group(function () {
 Route::get('/register', [CompanyRegisterController::class, 'create']);
 
 Route::post('/company/register', [CompanyRegisterController::class, 'store'])->name('company.register');
+Route::middleware(['auth'])->group(function () {
+    Route::get('/company/settings', [CompanyRegisterController::class, 'edit'])->name('company.edit');
+    Route::put('/company/{company}', [CompanyRegisterController::class, 'update'])->name('company.update');
+});
 
 Route::middleware(['auth'])->group(function () {
 

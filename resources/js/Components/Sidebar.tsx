@@ -53,6 +53,12 @@ export default function Sidebar({
         { href: "/visas", label: "التأشيرات", icon: "📄", hasDot: true }, // مستند يمثل الفيزا/التأشيرة
         { href: "/bags", label: "الحقائب", icon: "🧳", hasDot: true }, // حقيبة سفر تمثل الحقائب أو الأمتعة
         { href: "/employees", label: "الموظفين", icon: "👨‍💼", hasDot: true }, // موظف يمثل الموظف
+        {
+            href: "/company/settings",
+            label: "إعدادات الشركة",
+            icon: "⚙️",
+            hasDot: true,
+        }, // موظف يمثل الموظف
     ];
 
     return (

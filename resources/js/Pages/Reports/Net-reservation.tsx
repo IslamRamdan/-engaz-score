@@ -45,6 +45,7 @@ interface Customer {
     birth_date: string | null;
     governorate: string;
     personal_image: string;
+    nationality: string;
 }
 
 interface NetReservationProps {
@@ -149,7 +150,7 @@ export const NetReservation: React.FC<NetReservationProps> = ({
             "---",
         date_birth: formatDateSafe(customer.birth_date),
         governorate_live: customer.governorate || "غير متوفر",
-        nationality: "مصر",
+        nationality: customer.nationality || "غير متوفر",
         purpose:
             {
                 work: `عمل لدى ${group.visa?.sponsor?.name || "---"}`,
@@ -157,6 +158,8 @@ export const NetReservation: React.FC<NetReservationProps> = ({
                 work_temp_hajj_umrah: `عمل موسمي لدى ${group.visa?.sponsor?.name || "---"}`,
             }[group.visa?.type || ""] || "غير متوفر",
     };
+
+    // console.log(dummyCustomer.nationality);
     return (
         <AppLayout>
             <button

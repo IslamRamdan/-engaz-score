@@ -97,4 +97,35 @@ class CompanyRegisterController extends Controller
             ]);
         }
     }
+    public function edit()
+    {
+        // افترضنا هنا جلب الشركة الخاصة بالمستخدم الحالي أو الشركة الأولى
+        $company = auth()->user()->company ?? Company::firstOrFail();
+
+        $company->loadCount(['users', 'sponsors', 'visas', 'delegates', 'bags']);
+
+        return Inertia::render('Company/Edit', [
+            'company' => $company,
+        ]);
+    }
+
+    /**
+     * تحديث بيانات الشركة
+     */
+    public function update(Request $request, Company $company)
+    {
+        $validated = $request->validate([
+            'name'           => 'required|string|max:255',
+            'city'           => 'nullable|string|max:255',
+            'address'        => 'nullable|string|max:255',
+            'phone'          => 'nullable|string|max:50',
+            'email'          => 'nullable|email|max:255',
+            'country'        => 'nullable|string|max:255',
+            'gemini_api_key' => 'nullable|string|max:255',
+        ]);
+
+        $company->update($validated);
+
+        return redirect()->back()->with('success', 'تم تحديث بيانات الشركة بنجاح');
+    }
 }

@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useForm } from "@inertiajs/react";
 import Modal from "@/Components/Modal";
 import HijriDatePicker from "@/Components/HijriDatePicker";
@@ -25,6 +25,34 @@ interface Props {
     sponsors: Sponsor[];
 }
 
+// قائمة القنصليات والبعثات
+const CONSULATES = [
+    "القاهرة",
+    "الإسكندرية",
+    "السويس",
+    "جدة",
+    "الرياض",
+    "دبي",
+    "أبوظبي",
+    "الكويت",
+    "المنامة",
+    "مسقط",
+    "الدوحة",
+    "عمان",
+    "بيروت",
+    "بغداد",
+    "أربيل",
+    "دمشق",
+    "الخرطوم",
+    "بنغازي",
+    "طرابلس",
+    "تونس",
+    "الجزائر",
+    "الرباط",
+    "صنعاء",
+    "عدن",
+];
+
 export default function VisaForm({
     isOpen,
     onClose,
@@ -41,6 +69,31 @@ export default function VisaForm({
             issue_date_hijri: "",
         });
 
+    // حالة البحث والقائمة المنسدلة للقنصلية
+    const [searchQuery, setSearchQuery] = useState("");
+    const [isConsulateOpen, setIsConsulateOpen] = useState(false);
+    const consulateRef = useRef<HTMLDivElement>(null);
+
+    const filteredConsulates = CONSULATES.filter((item) =>
+        item.toLowerCase().includes(searchQuery.trim().toLowerCase()),
+    );
+
+    // إغلاق قائمة القنصلية عند الضغط خارج المكون
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (
+                consulateRef.current &&
+                !consulateRef.current.contains(event.target as Node)
+            ) {
+                setIsConsulateOpen(false);
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, []);
+
     useEffect(() => {
         if (visa) {
             setData({
@@ -55,6 +108,8 @@ export default function VisaForm({
             reset();
         }
         clearErrors();
+        setSearchQuery("");
+        setIsConsulateOpen(false);
     }, [visa, isOpen]);
 
     const handleFormSubmit = (e: React.FormEvent) => {
@@ -77,7 +132,7 @@ export default function VisaForm({
     return (
         <Modal show={isOpen} onClose={onClose} maxWidth="lg">
             <div
-                className="flex flex-col max-h-[90vh] bg-white dark:bg-slate-900"
+                className="flex flex-col max-h-[90vh] bg-white dark:bg-slate-900 overflow-visible"
                 dir="rtl"
             >
                 {/* هيدر المودال */}
@@ -87,6 +142,7 @@ export default function VisaForm({
                     </h3>
                     <button
                         onClick={onClose}
+                        type="button"
                         className="text-zinc-400 hover:text-zinc-600 dark:text-gray-400 dark:hover:text-gray-200 p-1.5 hover:bg-zinc-100 dark:hover:bg-gray-800 rounded-lg transition-all cursor-pointer"
                     >
                         <svg
@@ -119,7 +175,11 @@ export default function VisaForm({
                             type="text"
                             value={data.name}
                             onChange={(e) => setData("name", e.target.value)}
-                            className={`w-full text-center px-4 py-2.5 bg-zinc-50 dark:bg-gray-950 border dark:border-gray-700 rounded-xl text-sm text-zinc-900 dark:text-gray-100 placeholder-zinc-400 dark:placeholder-gray-500 transition-all focus:outline-hidden focus:ring-2 ${errors.name ? "border-red-500 focus:ring-red-500 focus:border-red-500" : "border-zinc-200 focus:ring-emerald-500 focus:border-emerald-500"}`}
+                            className={`w-full text-center px-4 py-2.5 bg-zinc-50 dark:bg-gray-950 border dark:border-gray-700 rounded-xl text-sm text-zinc-900 dark:text-gray-100 placeholder-zinc-400 dark:placeholder-gray-500 transition-all focus:outline-hidden focus:ring-2 ${
+                                errors.name
+                                    ? "border-red-500 focus:ring-red-500 focus:border-red-500"
+                                    : "border-zinc-200 focus:ring-emerald-500 focus:border-emerald-500"
+                            }`}
                             placeholder="مثال: تأشيرة موسم الحج 1447"
                         />
                         {errors.name && (
@@ -140,7 +200,11 @@ export default function VisaForm({
                                 onChange={(e) =>
                                     setData("type", e.target.value)
                                 }
-                                className={`w-full text-center pr-4 pl-10 py-2.5 bg-zinc-50 dark:bg-gray-950 border dark:border-gray-700 rounded-xl text-sm text-zinc-900 dark:text-gray-100 transition-all focus:outline-hidden focus:ring-2 ${errors.type ? "border-red-500 focus:ring-red-500 focus:border-red-500" : "border-zinc-200 focus:ring-emerald-500 focus:border-emerald-500"}`}
+                                className={`w-full text-center pr-4 pl-10 py-2.5 bg-zinc-50 dark:bg-gray-950 border dark:border-gray-700 rounded-xl text-sm text-zinc-900 dark:text-gray-100 transition-all focus:outline-hidden focus:ring-2 ${
+                                    errors.type
+                                        ? "border-red-500 focus:ring-red-500 focus:border-red-500"
+                                        : "border-zinc-200 focus:ring-emerald-500 focus:border-emerald-500"
+                                }`}
                             >
                                 <option value="">
                                     -- اختر نوع التأشيرة --
@@ -169,7 +233,11 @@ export default function VisaForm({
                                 onChange={(e) =>
                                     setData("sponsor_id", e.target.value)
                                 }
-                                className={`w-full text-center pr-4 pl-10 py-2.5 bg-zinc-50 dark:bg-gray-950 border dark:border-gray-700 rounded-xl text-sm text-zinc-900 dark:text-gray-100 transition-all focus:outline-hidden focus:ring-2 ${errors.sponsor_id ? "border-red-500 focus:ring-red-500 focus:border-red-500" : "border-zinc-200 focus:ring-emerald-500 focus:border-emerald-500"}`}
+                                className={`w-full text-center pr-4 pl-10 py-2.5 bg-zinc-50 dark:bg-gray-950 border dark:border-gray-700 rounded-xl text-sm text-zinc-900 dark:text-gray-100 transition-all focus:outline-hidden focus:ring-2 ${
+                                    errors.sponsor_id
+                                        ? "border-red-500 focus:ring-red-500 focus:border-red-500"
+                                        : "border-zinc-200 focus:ring-emerald-500 focus:border-emerald-500"
+                                }`}
                             >
                                 <option value="">
                                     -- اختر الكفيل المعتمد --
@@ -188,7 +256,7 @@ export default function VisaForm({
                         </div>
                     </div>
 
-                    {/* رقم الصادر والقنصلية */}
+                    {/* رقم الصادر والقنصلية (القابلة للبحث) */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-xs font-medium text-zinc-600 dark:text-slate-400 mb-1.5 mr-1">
@@ -200,7 +268,11 @@ export default function VisaForm({
                                 onChange={(e) =>
                                     setData("issue_number", e.target.value)
                                 }
-                                className={`w-full text-center px-4 py-2.5 bg-zinc-50 dark:bg-gray-950 border dark:border-gray-700 rounded-xl text-sm text-zinc-900 dark:text-gray-100 placeholder-zinc-400 dark:placeholder-gray-500 transition-all focus:outline-hidden focus:ring-2 ${errors.issue_number ? "border-red-500 focus:ring-red-500 focus:border-red-500" : "border-zinc-200 focus:ring-emerald-500 focus:border-emerald-500"}`}
+                                className={`w-full text-center px-4 py-2.5 bg-zinc-50 dark:bg-gray-950 border dark:border-gray-700 rounded-xl text-sm text-zinc-900 dark:text-gray-100 placeholder-zinc-400 dark:placeholder-gray-500 transition-all focus:outline-hidden focus:ring-2 ${
+                                    errors.issue_number
+                                        ? "border-red-500 focus:ring-red-500 focus:border-red-500"
+                                        : "border-zinc-200 focus:ring-emerald-500 focus:border-emerald-500"
+                                }`}
                                 placeholder="أدخل رقم الصادر الإلكتروني"
                             />
                             {errors.issue_number && (
@@ -210,22 +282,123 @@ export default function VisaForm({
                             )}
                         </div>
 
-                        <div>
+                        {/* القنصلية القابلة للبحث */}
+                        <div className="relative" ref={consulateRef}>
                             <label className="block text-xs font-medium text-zinc-600 dark:text-slate-400 mb-1.5 mr-1">
                                 القنصلية / البعثة
                             </label>
-                            <select
-                                value={data.consulate}
-                                onChange={(e) =>
-                                    setData("consulate", e.target.value)
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    setIsConsulateOpen(!isConsulateOpen)
                                 }
-                                className={`w-full text-center pr-4 pl-10 py-2.5 bg-zinc-50 dark:bg-gray-950 border dark:border-gray-700 rounded-xl text-sm text-zinc-900 dark:text-gray-100 transition-all focus:outline-hidden focus:ring-2 ${errors.consulate ? "border-red-500 focus:ring-red-500 focus:border-red-500" : "border-zinc-200 focus:ring-emerald-500 focus:border-emerald-500"}`}
+                                className={`w-full text-right px-4 py-2.5 bg-zinc-50 dark:bg-gray-950 border dark:border-gray-700 rounded-xl text-sm text-zinc-900 dark:text-gray-100 flex items-center justify-between transition-all focus:outline-none focus:ring-2 ${
+                                    errors.consulate
+                                        ? "border-red-500 focus:ring-red-500 focus:border-red-500"
+                                        : "border-zinc-200 focus:ring-emerald-500 focus:border-emerald-500"
+                                }`}
                             >
-                                <option value="">-- اختر القنصلية --</option>
-                                <option value="القاهرة">القاهرة</option>
-                                <option value="الإسكندرية">الإسكندرية</option>
-                                <option value="السويس">السويس</option>
-                            </select>
+                                <span
+                                    className={
+                                        data.consulate
+                                            ? "font-bold text-zinc-900 dark:text-gray-100"
+                                            : "text-zinc-400 dark:text-gray-500"
+                                    }
+                                >
+                                    {data.consulate || "-- اختر القنصلية --"}
+                                </span>
+                                <svg
+                                    className={`w-4 h-4 text-zinc-400 transition-transform duration-200 ${
+                                        isConsulateOpen ? "rotate-180" : ""
+                                    }`}
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth="2"
+                                        d="M19 9l-7 7-7-7"
+                                    />
+                                </svg>
+                            </button>
+
+                            {isConsulateOpen && (
+                                <div className="absolute z-50 w-full mt-1.5 bg-white dark:bg-gray-900 border border-zinc-200 dark:border-gray-700 rounded-xl shadow-xl overflow-hidden">
+                                    <div className="p-2 border-b border-zinc-100 dark:border-gray-800">
+                                        <input
+                                            type="text"
+                                            value={searchQuery}
+                                            onChange={(e) =>
+                                                setSearchQuery(e.target.value)
+                                            }
+                                            placeholder="ابحث عن القنصلية..."
+                                            autoFocus
+                                            className="w-full px-3 py-1.5 text-xs bg-zinc-50 dark:bg-gray-950 border border-zinc-200 dark:border-gray-700 rounded-lg text-zinc-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                        />
+                                    </div>
+
+                                    <div className="max-h-48 overflow-y-auto py-1 text-sm">
+                                        <div
+                                            onClick={() => {
+                                                setData("consulate", "");
+                                                setIsConsulateOpen(false);
+                                                setSearchQuery("");
+                                            }}
+                                            className="px-4 py-2 hover:bg-zinc-100 dark:hover:bg-gray-800 cursor-pointer text-zinc-400 dark:text-gray-500 text-xs"
+                                        >
+                                            -- بدون تحديد --
+                                        </div>
+
+                                        {filteredConsulates.length > 0 ? (
+                                            filteredConsulates.map((item) => (
+                                                <div
+                                                    key={item}
+                                                    onClick={() => {
+                                                        setData(
+                                                            "consulate",
+                                                            item,
+                                                        );
+                                                        setIsConsulateOpen(
+                                                            false,
+                                                        );
+                                                        setSearchQuery("");
+                                                    }}
+                                                    className={`px-4 py-2 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 cursor-pointer transition-colors flex items-center justify-between ${
+                                                        data.consulate === item
+                                                            ? "bg-emerald-50 dark:bg-emerald-950/60 font-bold text-emerald-700 dark:text-emerald-400"
+                                                            : "text-zinc-800 dark:text-gray-200"
+                                                    }`}
+                                                >
+                                                    <span>{item}</span>
+                                                    {data.consulate ===
+                                                        item && (
+                                                        <svg
+                                                            className="w-4 h-4 text-emerald-600 dark:text-emerald-400"
+                                                            fill="none"
+                                                            stroke="currentColor"
+                                                            viewBox="0 0 24 24"
+                                                        >
+                                                            <path
+                                                                strokeLinecap="round"
+                                                                strokeLinejoin="round"
+                                                                strokeWidth="2"
+                                                                d="M5 13l4 4L19 7"
+                                                            />
+                                                        </svg>
+                                                    )}
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <div className="px-4 py-3 text-xs text-center text-zinc-400 dark:text-gray-500">
+                                                لا توجد نتائج مطابقة
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
                             {errors.consulate && (
                                 <p className="text-red-500 text-[11px] mt-1 mr-1 font-semibold">
                                     {errors.consulate}
@@ -242,8 +415,8 @@ export default function VisaForm({
                         label="تاريخ الإصدار (هجري)"
                     />
 
-                    {/* أزرار الإجراءات والـ Actions */}
-                    <div className="pt-4 flex gap-3 border-t border-zinc-100 mt-6">
+                    {/* أزرار الإجراءات */}
+                    <div className="pt-4 flex gap-3 border-t border-zinc-100 dark:border-slate-800 mt-6">
                         <button
                             type="submit"
                             disabled={processing}

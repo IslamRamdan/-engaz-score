@@ -448,8 +448,8 @@ class CustomerController extends Controller
   "passport_issue_date": "YYYY-MM-DD أو فارغ",
   "passport_expiry_date": "YYYY-MM-DD أو فارغ",
   "passport_issue_place": "جهة الإصدار إن وجدت أو فارغ",
-  "address": "العنوان باللغة العربية إن أمكن استنتاجه أو فارغ",
-  "governorate": "باللغة العربية إن أمكن استنتاجها أو فارغ",
+  "address": "العنوان باللغة العربية إن أمكن استنتاجه أو فارغ لو غير موجودة حط مكان الميلاد",
+  "governorate": "باللغة العربية إن أمكن استنتاجها أو فارغ او مكان الميلاد",
   "national_id": "الرقم القومي انجليزي إن وجد أو فارغ",
   "mrz": "سطرا الـ MRZ كاملين كما هما مطبوعين، مفصولين بـ \\n"
 }

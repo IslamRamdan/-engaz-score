@@ -12,7 +12,8 @@ class Company extends Model
         'address',
         'phone',
         'email',
-        'country'
+        'country',
+        'gemini_api_key'
     ];
 
     public function users()

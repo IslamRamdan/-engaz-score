@@ -460,10 +460,170 @@ export default function Show({
 
             const nameParts = (customer.name_en || "").trim().split(/\s+/);
 
+            // دالة تحويل الاسم/الجنسية إلى الاختصار المعياري (ISO Alpha-3)
+            function getCountryCode(
+                nationalityOrCountry: string | null | undefined,
+            ): string {
+                if (!nationalityOrCountry) return "EGY"; // القيمة الافتراضية
+
+                const cleanInput = nationalityOrCountry.trim().toLowerCase();
+
+                // خريطة أهم الدول والجنسيات بالعربية والإنجليزية
+                const countryMap: Record<string, string> = {
+                    // مصر
+                    مصر: "EGY",
+                    مصري: "EGY",
+                    مصرية: "EGY",
+                    egypt: "EGY",
+                    egyptian: "EGY",
+                    egy: "EGY",
+
+                    // السودان
+                    السودان: "SDN",
+                    سودان: "SDN",
+                    سوداني: "SDN",
+                    سودانية: "SDN",
+                    sudan: "SDN",
+                    sudanese: "SDN",
+                    sdn: "SDN",
+
+                    // السعودية
+                    السعودية: "SAU",
+                    "المملكة العربية السعودية": "SAU",
+                    سعودي: "SAU",
+                    سعودية: "SAU",
+                    "saudi arabia": "SAU",
+                    sau: "SAU",
+                    ksa: "SAU",
+
+                    // اليمن
+                    اليمن: "YEM",
+                    يمني: "YEM",
+                    يمنية: "YEM",
+                    yemen: "YEM",
+                    yemeni: "YEM",
+                    yem: "YEM",
+
+                    // الإمارات
+                    الإمارات: "ARE",
+                    الامارات: "ARE",
+                    إماراتي: "ARE",
+                    اماراتي: "ARE",
+                    uae: "ARE",
+                    are: "ARE",
+
+                    // الأردن
+                    الأردن: "JOR",
+                    الاردن: "JOR",
+                    أردني: "JOR",
+                    اردني: "JOR",
+                    jordan: "JOR",
+                    jordanian: "JOR",
+                    jor: "JOR",
+
+                    // الكويت
+                    الكويت: "KWT",
+                    كويتي: "KWT",
+                    kuwait: "KWT",
+                    kwt: "KWT",
+
+                    // سوريا
+                    سوريا: "SYR",
+                    سوري: "SYR",
+                    syria: "SYR",
+                    syrian: "SYR",
+                    syr: "SYR",
+
+                    // العراق
+                    العراق: "IRQ",
+                    عراقي: "IRQ",
+                    iraq: "IRQ",
+                    irq: "IRQ",
+                };
+
+                // إرجاع الاختصار إن وجد، أو تحويل النص المدخل لأول 3 حروف كـ Fallback
+                return (
+                    countryMap[cleanInput] ||
+                    (cleanInput.length === 3 ? cleanInput.toUpperCase() : "EGY")
+                );
+            }
+
+            function getCountryNameArabic(
+                nationalityOrCountry: string | null | undefined,
+            ): string {
+                if (!nationalityOrCountry) return "مصر"; // القيمة الافتراضية
+
+                const cleanInput = nationalityOrCountry.trim().toLowerCase();
+
+                // خريطة تحويل الجنسية/الرمز/الاسم الإنجليزي إلى اسم الدولة بالعربي
+                const countryMap: Record<string, string> = {
+                    // مصر
+                    egy: "مصر",
+                    egypt: "مصر",
+                    egyptian: "مصر",
+                    مصر: "مصر",
+                    مصري: "مصر",
+                    مصرية: "مصر",
+
+                    // السودان
+                    sdn: "السودان",
+                    sudan: "السودان",
+                    sudanese: "السودان",
+                    السودان: "السودان",
+                    سوداني: "السودان",
+                    سودانية: "السودان",
+
+                    // السعودية
+                    sau: "المملكة العربية السعودية",
+                    ksa: "المملكة العربية السعودية",
+                    "saudi arabia": "المملكة العربية السعودية",
+                    السعودية: "المملكة العربية السعودية",
+                    سعودي: "المملكة العربية السعودية",
+
+                    // اليمن
+                    yem: "اليمن",
+                    yemen: "اليمن",
+                    اليمن: "اليمن",
+                    يمني: "اليمن",
+
+                    // الإمارات
+                    are: "الإمارات العربية المتحدة",
+                    uae: "الإمارات العربية المتحدة",
+                    الإمارات: "الإمارات العربية المتحدة",
+                    اماراتي: "الإمارات العربية المتحدة",
+
+                    // الأردن
+                    jor: "الأردن",
+                    jordan: "الأردن",
+                    الأردن: "الأردن",
+                    اردني: "الأردن",
+
+                    // الكويت
+                    kwt: "الكويت",
+                    kuwait: "الكويت",
+                    الكويت: "الكويت",
+                    كويتي: "الكويت",
+
+                    // سوريا
+                    syr: "سوريا",
+                    syria: "سوريا",
+                    سوريا: "سوريا",
+                    سوري: "سوريا",
+
+                    // العراق
+                    irq: "العراق",
+                    iraq: "العراق",
+                    العراق: "العراق",
+                    عراقي: "العراق",
+                };
+
+                return countryMap[cleanInput] || customer.nationality || "مصر";
+            }
             // بناء كائن البيانات للعميل الحالي
             const data = {
                 email: user?.email || "",
                 group: group?.id || "",
+                NATIONALITY: getCountryCode(customer.nationality),
                 customer_id: customer.id,
                 UserName: user.engaz_email,
                 Password: user.engaz_password,
@@ -475,7 +635,7 @@ export default function Show({
                         temporary_work: "عمل مؤقت",
                     }[visa?.type] || "غير محدد",
                 DocumentNumber: visa?.issue_number,
-                NATIONALITY: "EGY",
+                // NATIONALITY: "EGY",
                 ResidenceCountry: "272",
                 EmbassyCode: visa?.consulate || "غير محدد",
                 NumberOfEntries: "0",
@@ -493,7 +653,9 @@ export default function Show({
                     nameParts.length > 1 ? nameParts[nameParts.length - 1] : "",
                 PASSPORTnumber: customer.passport_number,
                 PASSPORType: "1",
-                PASSPORT_ISSUE_PLACE: "مصر",
+                PASSPORT_ISSUE_PLACE: getCountryNameArabic(
+                    customer.nationality,
+                ),
                 PASSPORT_ISSUE_DATE: customer.passport_issue_date,
                 PASSPORT_EXPIRY_DATE: customer.passport_expiry_date,
                 BIRTH_PLACE: customer.governorate,
