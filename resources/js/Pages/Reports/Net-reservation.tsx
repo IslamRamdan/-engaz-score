@@ -159,7 +159,6 @@ export const NetReservation: React.FC<NetReservationProps> = ({
             }[group.visa?.type || ""] || "غير متوفر",
     };
 
-    // console.log(dummyCustomer.nationality);
     return (
         <AppLayout>
             <button

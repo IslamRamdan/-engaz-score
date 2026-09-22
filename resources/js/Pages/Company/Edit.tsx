@@ -1,7 +1,9 @@
 import React, { useState } from "react";
 import { useForm, usePage, Head } from "@inertiajs/react";
 import AppLayout from "@/Layouts/AppLayout";
-
+// import { useForm, usePage, Head } from "@inertiajs/react";
+// import AppLayout from "@/Layouts/AppLayout";
+import { PageProps as InertiaPageProps } from "@/types";
 interface Company {
     id: number;
     name: string;
@@ -18,13 +20,20 @@ interface Company {
     bags_count?: number;
 }
 
-interface PageProps {
+// interface PageProps {
+//     company: Company;
+//     flash: {
+//         success?: string;
+//         error?: string;
+//     };
+//     [key: string]: any;
+// }
+interface PageProps extends InertiaPageProps {
     company: Company;
     flash: {
         success?: string;
         error?: string;
     };
-    [key: string]: any;
 }
 
 type FieldKey = "name" | "email" | "phone" | "country" | "city" | "address";
@@ -304,7 +313,6 @@ const STATS: {
 /* =========================================================
    MAIN PAGE
 ========================================================= */
-
 export default function CompanyEdit({ company }: { company: Company }) {
     const { flash } = usePage<PageProps>().props;
 

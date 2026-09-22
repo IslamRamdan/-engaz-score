@@ -1,13 +1,16 @@
 import { useState, useEffect } from "react";
+import { Head } from "@inertiajs/react"; // 1. استيراد Head
 import Sidebar from "@/Components/Sidebar";
 import ThemeToggle from "@/Components/ThemeToggle";
 
-// تحديث الـ Props ليستقبل الكلاس الممرر من الخارج (className)
+// 2. تحديث الأنواع لتشمل title كخاصية اختيارية
 export default function AppLayout({
     children,
+    title,
     className = "",
 }: {
     children: React.ReactNode;
+    title?: string;
     className?: string;
 }) {
     // إدارة حالة الانكماش من الكومبوننت الأب لتحديث مساحة الشاشة بالكامل
@@ -32,6 +35,9 @@ export default function AppLayout({
             className={`flex bg-zinc-50 dark:bg-zinc-900 min-h-screen text-zinc-900 dark:text-zinc-100 overflow-x-hidden transition-colors duration-300 ${className}`}
             dir="rtl"
         >
+            {/* 3. إضافة المكون لتغيير عنوان المتصفح تلقائياً */}
+            {title && <Head title={title} />}
+
             {/* ستايل مخصص للطباعة داخل الـ Layout نفسه لضمان الفرز النظيف */}
             <style>{`
                 @media print {
