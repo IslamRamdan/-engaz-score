@@ -422,7 +422,7 @@ export default function NominationCard({
                                             color: "red",
                                         }}
                                     >
-                                        <span>رقم</span>: {outgoingNumber}
+                                        <span>رقم</span>: {registrationNumber}
                                     </td>
                                 </tr>
                                 <tr>
@@ -436,7 +436,7 @@ export default function NominationCard({
                                             color: "red",
                                         }}
                                     >
-                                        <span>رقم</span>: {registrationNumber}
+                                        <span>رقم</span>: {outgoingNumber}
                                     </td>
                                 </tr>
                                 <tr>

@@ -17,8 +17,6 @@ use App\Http\Controllers\BagController;
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\ReportController;
 use App\Models\Bag;
-use App\Models\Customer;
-use App\Models\Sponsor;
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
@@ -160,6 +158,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::put('/groups/{group}/customers/{customer}/status', [GroupController::class, 'updateCustomerStatus'])
         ->name('groups.customers.status.update');
+
+    Route::get('/groups/customers/download-data', [GroupController::class, 'downloadData'])
+        ->name('groups.customers.download-data');
 });
 
 Route::middleware(['auth'])->group(function () {

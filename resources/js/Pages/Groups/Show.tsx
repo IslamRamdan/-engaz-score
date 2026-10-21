@@ -1230,6 +1230,27 @@ export default function Show({
             : String(valB).localeCompare(String(valA), "ar");
     });
 
+    // تنزيل ملفات العملاء
+    const handleDownloadData = () => {
+        if (selectedIds.length === 0) {
+            Swal.fire({
+                icon: "warning",
+                title: "لم يتم تحديد أي عميل",
+                text: "اختر عميل واحد على الأقل قبل تنزيل البيانات.",
+            });
+            return;
+        }
+
+        const params = new URLSearchParams();
+        params.append("group_id", String(group.id));
+        selectedIds.forEach((id) =>
+            params.append("customer_ids[]", String(id)),
+        );
+
+        setIsOperationsOpen(false);
+        window.location.href = `${route("groups.customers.download-data")}?${params.toString()}`;
+    };
+
     return (
         <AppLayout>
             <Head title={`مجموعة ${group.name}`} />
@@ -1306,6 +1327,13 @@ export default function Show({
                                     >
                                         <Download className="w-4 h-4 text-emerald-500" />
                                         <span>تصدير المحددين Excel</span>
+                                    </button>
+                                    <button
+                                        onClick={handleDownloadData}
+                                        className="w-full flex items-center gap-2 px-4 py-3 text-right text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors border-b border-zinc-100 dark:border-zinc-800"
+                                    >
+                                        <Download className="w-4 h-4 text-emerald-500" />
+                                        <span>تنزيل الملفات </span>
                                     </button>
                                 </div>
                             )}

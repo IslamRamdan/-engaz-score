@@ -11,6 +11,11 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use ZipArchive;
+
+
 class GroupController extends Controller
 {
     /**
@@ -235,5 +240,99 @@ class GroupController extends Controller
         );
 
         return back()->with('success', 'تم تحديث البيانات بنجاح');
+    }
+
+    public function downloadData(Request $request)
+    {
+        $validated = $request->validate([
+            'group_id'       => ['required', 'exists:groups,id'],
+            'customer_ids'   => ['required', 'array', 'min:1'],
+            'customer_ids.*' => ['integer', 'exists:customers,id'],
+        ]);
+
+        $group = Group::findOrFail($validated['group_id']);
+
+        // العملاء المحددين التابعين للمجموعة فقط
+        $customers = $group->customers()
+            ->whereIn('customers.id', $validated['customer_ids'])
+            ->get();
+
+        if ($customers->isEmpty()) {
+            return back()->with('error', 'لا يوجد عملاء صالحين للتنزيل');
+        }
+
+        // اسم الحقل في الداتابيس => اسم الملف جوه الفولدر
+        $fileFields = [
+            'national_id_image'   => 'id_card',
+            'job_proof_image' => 'job_proof',
+            'personal_image'  => 'personal',
+            'passport_image'  => 'passport',
+        ];
+
+        $disk = Storage::disk('public');
+
+        set_time_limit(0);
+
+        $zipPath = storage_path('app/tmp_' . Str::uuid() . '.zip');
+        $zip = new ZipArchive();
+
+        if ($zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+            return back()->with('error', 'تعذر إنشاء ملف الضغط');
+        }
+
+        $filesAdded = 0;
+        $usedFolders = [];
+
+        foreach ($customers as $customer) {
+            // اسم الفولدر باسم العميل
+            $folder = $this->makeFolderName($customer, $usedFolders);
+
+            foreach ($fileFields as $field => $label) {
+                $path = $customer->{$field};
+
+                if (!$path || !$disk->exists($path)) {
+                    continue;
+                }
+
+                $ext = pathinfo($path, PATHINFO_EXTENSION) ?: 'jpg';
+
+                $zip->addFile($disk->path($path), "{$folder}/{$label}.{$ext}");
+                $filesAdded++;
+            }
+        }
+
+        $zip->close();
+
+        if ($filesAdded === 0) {
+            @unlink($zipPath);
+            return back()->with('error', 'لا توجد ملفات مرفوعة للعملاء المحددين');
+        }
+
+        return response()
+            ->download($zipPath, "group-{$group->id}-customers-files.zip")
+            ->deleteFileAfterSend(true);
+    }
+
+    private function makeFolderName($customer, array &$usedFolders): string
+    {
+        $name = trim($customer->name_ar ?: $customer->name_en ?: '');
+
+        // إزالة الرموز الممنوعة في أسماء الفولدرات والمسافات الزايدة
+        $name = preg_replace('/[\\\\\/:*?"<>|\x00-\x1F]/u', '', $name);
+        $name = preg_replace('/\s+/u', ' ', $name);
+        $name = trim($name, " .");
+
+        if ($name === '') {
+            $name = 'عميل ' . $customer->id;
+        }
+
+        // لو الاسم متكرر، أضف رقم العميل
+        if (isset($usedFolders[$name])) {
+            $name .= ' (' . $customer->id . ')';
+        }
+
+        $usedFolders[$name] = true;
+
+        return $name;
     }
 }
