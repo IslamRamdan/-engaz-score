@@ -54,6 +54,30 @@ export default function Sidebar({
         { href: "/bags", label: "الحقائب", icon: "🧳", hasDot: true }, // حقيبة سفر تمثل الحقائب أو الأمتعة
         { href: "/employees", label: "الموظفين", icon: "👨‍💼", hasDot: true }, // موظف يمثل الموظف
         {
+            href: "/payment-methods",
+            label: "طرق الاستلام",
+            icon: "💳",
+            hasDot: true,
+        },
+        {
+            href: "/treasuries",
+            label: "الخزائن",
+            icon: "🏦",
+            hasDot: true,
+        },
+        {
+            href: "/dues",
+            label: "الاستحقاقات",
+            icon: "💰",
+            hasDot: true,
+        },
+        {
+            href: "/entries",
+            label: "الإدخالات",
+            icon: "📥",
+            hasDot: true,
+        },
+        {
             href: "/company/settings",
             label: "إعدادات الشركة",
             icon: "⚙️",

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Customer;
 use App\Http\Controllers\Controller;
 use App\Models\Customer;
 use App\Models\Delegate;
+use App\Models\Due;
 use App\Models\Group;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -27,9 +28,11 @@ class CustomerController extends Controller
      */
     public function create()
     {
+        $dues = Due::all(); // جلب الاستحقاقات
         return Inertia::render('Customers/Create', [
             'delegates' => Delegate::where('company_id', auth()->user()->company_id)
                 ->get(['id', 'name']),
+            'dues' => $dues,
         ]);
     }
 
@@ -110,6 +113,8 @@ class CustomerController extends Controller
 
                 // المندوب
                 'delegate_id' => ['nullable', 'exists:delegates,id'],
+                'due_ids' => 'nullable|array',
+                'due_ids.*' => 'exists:dues,id',
             ], [
                 // =========================
                 // رسائل بالعربي
@@ -171,6 +176,10 @@ class CustomerController extends Controller
                 // 4. إنشاء سجل العميل الأساسي
                 $customer = Customer::create($customerData);
 
+                if ($request->has('due_ids')) {
+                    $customer->dues()->sync($request->due_ids);
+                }
+
                 // 5. ربط المندوب في الجدول الوسيط (customer_delegate) إذا تم اختياره
                 if ($request->filled('delegate_id')) {
                     $customer->delegates()->attach($request->delegate_id, [
@@ -211,11 +220,12 @@ class CustomerController extends Controller
 
     public function edit(Customer $customer)
     {
+        $customer->load('dues'); // تحميل الاستحقاقات المرتبطة بالعميل
         // التأكد أن العميل تابع لنفس الشركة (أمان إضافي)
         if ($customer->company_id !== auth()->user()->company_id) {
             abort(403, 'غير مصرح لك بتعديل بيانات هذا العميل.');
         }
-
+        $dues = Due::all(); // جلب كل الاستحقاقات المتاحة
         // جلب معرف آخر مندوب تم تعيينه للعميل إن وجد
         $currentDelegateId = $customer->latestDelegate()->first()?->id;
 
@@ -225,7 +235,8 @@ class CustomerController extends Controller
         return Inertia::render('Customers/Edit', [
             'customer' => $customer,
             'current_delegate_id' => $currentDelegateId,
-            'delegates' => $delegates
+            'delegates' => $delegates,
+            'dues' => $dues,
         ]);
     }
 
@@ -299,6 +310,8 @@ class CustomerController extends Controller
             'personal_image'       => ['nullable', 'file', 'image'],
             'national_id_image'    => ['nullable', 'file', 'image'],
             'job_proof_image'      => ['nullable', 'file', 'image'],
+            'due_ids' => 'nullable|array',
+            'due_ids.*' => 'exists:dues,id',
         ], [
             // رسائل الخطأ بالعربية المحدثة لتناسب المنع العام
             'phone.unique'           => 'رقم الهاتف هذا مسجل مسبقاً لعميل آخر في النظام.',
@@ -331,6 +344,12 @@ class CustomerController extends Controller
 
             // 4. تحديث سجل العميل في جدول قاعدة البيانات الرئيسي
             $customer->update($customerData);
+
+            if ($request->has('due_ids')) {
+                $customer->dues()->sync($request->due_ids);
+            } else {
+                $customer->dues()->detach(); // لو لم يتم اختيار شيء يتم مسح القديم
+            }
 
             // 5. تحديث المندوب في الجدول الوسيط إذا تغير عن المندوب الأخير للعميل
             $oldDelegateId = $customer->latestDelegate()->first()?->id;
@@ -663,5 +682,17 @@ PROMPT;
         }, $fileName, [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         ]);
+    }
+
+    public function search_name(Request $request)
+    {
+        $q = trim($request->query('q', ''));
+
+        return Customer::query()
+            ->select('id', 'name_ar')
+            ->when($q !== '', fn($query) => $query->where('name_ar', 'like', "%{$q}%"))
+            ->orderBy('name_ar')
+            ->limit(20)
+            ->get();
     }
 }

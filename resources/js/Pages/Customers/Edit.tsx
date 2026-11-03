@@ -26,6 +26,12 @@ import {
     Loader2,
 } from "lucide-react";
 
+interface Due {
+    id: number;
+    name: string;
+    amount: number;
+}
+
 interface Delegate {
     id: number;
     name: string;
@@ -63,9 +69,10 @@ interface Customer {
 }
 
 interface EditProps {
-    customer: Customer;
+    customer: Customer & { dues?: Due[] }; // لكي نستقبل الاستحقاقات المرتبطة بالعميل حالياً
     current_delegate_id: number | null;
     delegates: Delegate[];
+    dues: Due[]; // قائمة كل الاستحقاقات المتاحة للاختيار
 }
 
 interface FormState {
@@ -98,6 +105,7 @@ interface FormState {
     personal_image: File | null;
     national_id_image: File | null;
     job_proof_image: File | null;
+    due_ids: number[]; // <--- تعريفها بوضوح هنا
 }
 
 // ─── شكل رد استخراج بيانات الجواز من الـ API ─────────────────────────────────
@@ -595,6 +603,7 @@ export default function Edit({
     customer,
     current_delegate_id,
     delegates,
+    dues = [],
 }: EditProps) {
     const { data, setData, post, processing, errors } = useForm<FormState>({
         _method: "put",
@@ -605,6 +614,7 @@ export default function Edit({
             ? customer.birth_date.split("T")[0]
             : "",
         nationality: customer.nationality || "",
+        due_ids: customer.dues ? customer.dues.map((d) => d.id) : [], // جلب الاستحقاقات المرتبطة حالياً
         marital_status: customer.marital_status || "",
         phone: customer.phone || "",
         whatsapp: customer.whatsapp || "",
@@ -633,6 +643,9 @@ export default function Edit({
         national_id_image: null,
         job_proof_image: null,
     });
+
+    const [dueSearch, setDueSearch] = useState("");
+    const [isDueDropdownOpen, setIsDueDropdownOpen] = useState(false);
 
     // ─── حالة استخراج بيانات الجواز عبر الذكاء الاصطناعي ─────────────────────
     const [extracting, setExtracting] = useState(false);
@@ -988,6 +1001,186 @@ export default function Edit({
                                                 placeholder="المدينة، الشارع..."
                                             />
                                         </Field>
+                                    </div>
+                                </Section>
+                            </div>
+                            {/* ── قسم الاستحقاقات المالية المرتبطة (بحث واختيار متعدد) ── */}
+                            <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-sm p-7 space-y-6">
+                                <Section
+                                    icon={CreditCard}
+                                    title="الاستحقاقات المالية المرتبطة"
+                                >
+                                    <div className="space-y-3 relative">
+                                        <label className="block text-[10px] font-black tracking-widest uppercase text-zinc-500 dark:text-zinc-400 mb-1">
+                                            ابحث واختر الاستحقاقات الخاصة بهذا
+                                            العميل
+                                        </label>
+
+                                        {/* حقل البحث وإظهار القائمة */}
+                                        <div className="relative">
+                                            <input
+                                                type="text"
+                                                value={dueSearch}
+                                                onChange={(e) => {
+                                                    setDueSearch(
+                                                        e.target.value,
+                                                    );
+                                                    setIsDueDropdownOpen(true);
+                                                }}
+                                                onFocus={() =>
+                                                    setIsDueDropdownOpen(true)
+                                                }
+                                                placeholder="ابحث باسم الاستحقاق..."
+                                                className={inputCls}
+                                            />
+
+                                            {/* القائمة المنسدلة للنتائج المفلترة */}
+                                            {isDueDropdownOpen && (
+                                                <>
+                                                    <div
+                                                        className="fixed inset-0 z-10"
+                                                        onClick={() =>
+                                                            setIsDueDropdownOpen(
+                                                                false,
+                                                            )
+                                                        }
+                                                    />
+
+                                                    <div className="absolute z-20 inset-x-0 mt-2 max-h-60 overflow-y-auto bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-2xl shadow-xl p-2 space-y-1">
+                                                        {dues
+                                                            .filter((due) =>
+                                                                due.name
+                                                                    .toLowerCase()
+                                                                    .includes(
+                                                                        dueSearch.toLowerCase(),
+                                                                    ),
+                                                            )
+                                                            .map((due) => {
+                                                                const isSelected =
+                                                                    data.due_ids.includes(
+                                                                        due.id,
+                                                                    );
+                                                                return (
+                                                                    <div
+                                                                        key={
+                                                                            due.id
+                                                                        }
+                                                                        onClick={() => {
+                                                                            const updated =
+                                                                                isSelected
+                                                                                    ? data.due_ids.filter(
+                                                                                          (
+                                                                                              id,
+                                                                                          ) =>
+                                                                                              id !==
+                                                                                              due.id,
+                                                                                      )
+                                                                                    : [
+                                                                                          ...data.due_ids,
+                                                                                          due.id,
+                                                                                      ];
+                                                                            setData(
+                                                                                "due_ids",
+                                                                                updated,
+                                                                            );
+                                                                        }}
+                                                                        className={`cursor-pointer px-4 py-2.5 rounded-xl transition-all flex items-center justify-between text-xs font-bold ${
+                                                                            isSelected
+                                                                                ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-200"
+                                                                                : "hover:bg-zinc-100 dark:hover:bg-zinc-700/50 text-zinc-700 dark:text-zinc-300"
+                                                                        }`}
+                                                                    >
+                                                                        <div className="flex items-center gap-2">
+                                                                            <span>
+                                                                                {
+                                                                                    due.name
+                                                                                }
+                                                                            </span>
+                                                                            <span
+                                                                                className={`text-[10px] font-semibold px-2 py-0.5 rounded-md ${Number(due.amount) < 0 ? "bg-red-100 text-red-600 dark:bg-red-950/40 dark:text-red-400" : "bg-emerald-100 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400"}`}
+                                                                            >
+                                                                                {
+                                                                                    due.amount
+                                                                                }
+                                                                            </span>
+                                                                        </div>
+                                                                        {isSelected && (
+                                                                            <span className="text-emerald-600 dark:text-emerald-400 font-black text-xs">
+                                                                                ✓
+                                                                                مختار
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                );
+                                                            })}
+
+                                                        {dues.filter((due) =>
+                                                            due.name
+                                                                .toLowerCase()
+                                                                .includes(
+                                                                    dueSearch.toLowerCase(),
+                                                                ),
+                                                        ).length === 0 && (
+                                                            <div className="p-3 text-center text-xs text-zinc-400 dark:text-zinc-500">
+                                                                لا توجد نتائج
+                                                                مطابقة للبحث
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </>
+                                            )}
+                                        </div>
+
+                                        {/* عرض الاستحقاقات المختارة كـ Badges */}
+                                        {data.due_ids.length > 0 && (
+                                            <div className="flex flex-wrap gap-2 pt-2">
+                                                {data.due_ids.map((id) => {
+                                                    const due = dues.find(
+                                                        (d) => d.id === id,
+                                                    );
+                                                    if (!due) return null;
+                                                    return (
+                                                        <span
+                                                            key={id}
+                                                            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
+                                                        >
+                                                            {due.name} (
+                                                            {due.amount})
+                                                            <button
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    setData(
+                                                                        "due_ids",
+                                                                        data.due_ids.filter(
+                                                                            (
+                                                                                item,
+                                                                            ) =>
+                                                                                item !==
+                                                                                id,
+                                                                        ),
+                                                                    )
+                                                                }
+                                                                className="hover:text-red-500 font-black ml-0.5"
+                                                            >
+                                                                ×
+                                                            </button>
+                                                        </span>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+
+                                        {dues.length === 0 && (
+                                            <p className="text-xs text-zinc-400 dark:text-zinc-500 italic">
+                                                لا توجد استحقاقات معرفة حالياً.
+                                            </p>
+                                        )}
+
+                                        {errors.due_ids && (
+                                            <p className="text-red-500 text-[10px] mt-1.5 font-bold">
+                                                {errors.due_ids}
+                                            </p>
+                                        )}
                                     </div>
                                 </Section>
                             </div>

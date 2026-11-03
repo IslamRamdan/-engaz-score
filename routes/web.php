@@ -14,8 +14,12 @@ use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Http\Controllers\BagController;
+use App\Http\Controllers\DueController;
 use App\Http\Controllers\EmployeeController;
+use App\Http\Controllers\EntryController;
+use App\Http\Controllers\PaymentMethodController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\TreasuryController;
 use App\Models\Bag;
 
 Route::get('/', function () {
@@ -88,6 +92,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 });
 
 Route::middleware(['auth'])->group(function () {
+
+    Route::get('/customers/search', [CustomerController::class, 'search_name'])->name('customers.search_name');
 
     // استخراج اكسيل للعملاء المحددين
     Route::get('/customers/export', [CustomerController::class, 'export'])
@@ -191,6 +197,30 @@ Route::middleware(['auth'])->group(function () {
 
     Route::delete('/employees/{id}', [EmployeeController::class, 'destroy'])->name('employees.destroy');
 });
+
+
+Route::middleware(['auth'])->group(function () {
+    Route::get('/payment-methods', [PaymentMethodController::class, 'index'])->name('payment-methods.index');
+    Route::post('/payment-methods', [PaymentMethodController::class, 'store'])->name('payment-methods.store');
+    Route::delete('/payment-methods/{paymentMethod}', [PaymentMethodController::class, 'destroy'])->name('payment-methods.destroy');
+});
+Route::middleware(['auth'])->group(function () {
+    Route::get('/treasuries', [TreasuryController::class, 'index'])->name('treasuries.index');
+    Route::post('/treasuries', [TreasuryController::class, 'store'])->name('treasuries.store');
+    Route::delete('/treasuries/{treasury}', [TreasuryController::class, 'destroy'])->name('treasuries.destroy');
+});
+Route::middleware(['auth'])->group(function () {
+    Route::get('/entries', [EntryController::class, 'index'])->name('entries.index');
+    Route::post('/entries', [EntryController::class, 'store'])->name('entries.store');
+    Route::delete('/entries/{entry}', [EntryController::class, 'destroy'])->name('entries.destroy');
+});
+Route::middleware(['auth'])->group(function () {
+    Route::get('/dues', [DueController::class, 'index'])->name('dues.index');
+    Route::post('/dues', [DueController::class, 'store'])->name('dues.store');
+    Route::delete('/dues/{due}', [DueController::class, 'destroy'])->name('dues.destroy');
+});
+
+
 // Route::get('/customers/export', [CustomerController::class, 'export'])
 //     ->name('customers.export');
 

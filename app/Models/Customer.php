@@ -157,4 +157,8 @@ class Customer extends Model
     {
         return $this->belongsToMany(Bag::class, 'bag_customer')->withTimestamps();
     }
+    public function dues()
+    {
+        return $this->belongsToMany(Due::class);
+    }
 }
