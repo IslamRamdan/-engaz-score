@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import JsBarcode from "jsbarcode";
 import AppLayout from "@/Layouts/AppLayout";
 
@@ -10,6 +10,12 @@ interface Sponsor {
     id_number?: string | null;
     country?: string | null;
 }
+
+const VISA_TYPE_LABELS = {
+    work_temp_hajj_umrah: " العمل المؤقت للحج والعمرة",
+    work: " عمل",
+    temporary_work: "عمل مؤقت",
+};
 
 interface Visa {
     id: number;
@@ -192,8 +198,22 @@ export default function JobNominationForm({
 
                         <div className="jnf-overlay">
                             {/* عنوان الاستمارة */}
-                            <h2 className="jnf-form-header">
-                                (استمارة ترشيح <span>{visaTypeLabel}</span> )
+                            <h2
+                                className="jnf-form-header"
+                                style={{ whiteSpace: "nowrap" }}
+                            >
+                                (استمارة ترشيح{" "}
+                                <span>
+                                    {(
+                                        {
+                                            work_temp_hajj_umrah:
+                                                " العمل المؤقت للحج والعمرة",
+                                            work: " عمل",
+                                            temporary_work: "عمل مؤقت",
+                                        } as Record<string, string>
+                                    )[visaTypeLabel || ""] || ""}
+                                </span>
+                                )
                             </h2>
 
                             {/* قسم الصورة والمرفقات */}

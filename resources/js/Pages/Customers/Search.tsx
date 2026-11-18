@@ -1,6 +1,7 @@
 // resources/js/Pages/Customers/Search.tsx
 
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Head, Link } from "@inertiajs/react";
 import axios from "axios";
 import AppLayout from "@/Layouts/AppLayout";
@@ -13,6 +14,11 @@ import {
     IdCard,
     UserCircle2,
     Loader2,
+    MoreVertical,
+    Eye,
+    Edit3,
+    Landmark,
+    Building2,
 } from "lucide-react";
 
 interface Customer {
@@ -31,6 +37,15 @@ interface SearchApiResponse {
     total: number;
 }
 
+interface MenuState {
+    customer: Customer;
+    top: number;
+    left: number;
+}
+
+const MENU_WIDTH = 176;
+const MENU_HEIGHT = 94;
+
 export default function Search() {
     const [search, setSearch] = useState("");
     const [results, setResults] = useState<Customer[]>([]);
@@ -41,6 +56,68 @@ export default function Search() {
 
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const requestIdRef = useRef(0);
+
+    // قايمة الإجراءات المنسدلة
+    const [menu, setMenu] = useState<MenuState | null>(null);
+    const menuRef = useRef<HTMLDivElement | null>(null);
+
+    const toggleMenu = (
+        e: React.MouseEvent<HTMLButtonElement>,
+        customer: Customer,
+    ) => {
+        // الكارت كله Link، فلازم نمنع الانتقال لما نضغط على الزرار
+        e.preventDefault();
+        e.stopPropagation();
+
+        if (menu?.customer.id === customer.id) {
+            setMenu(null);
+            return;
+        }
+
+        const r = e.currentTarget.getBoundingClientRect();
+        const openUp = window.innerHeight - r.bottom < MENU_HEIGHT + 12;
+
+        setMenu({
+            customer,
+            top: openUp ? r.top - MENU_HEIGHT - 4 : r.bottom + 4,
+            left: Math.min(
+                Math.max(8, r.left),
+                window.innerWidth - MENU_WIDTH - 8,
+            ),
+        });
+    };
+
+    useEffect(() => {
+        if (!menu) return;
+
+        const close = () => setMenu(null);
+
+        const onClickOutside = (e: MouseEvent) => {
+            const target = e.target as HTMLElement;
+            if (
+                menuRef.current?.contains(target) ||
+                target.closest("[data-menu-btn]")
+            )
+                return;
+            close();
+        };
+
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === "Escape") close();
+        };
+
+        document.addEventListener("mousedown", onClickOutside);
+        document.addEventListener("keydown", onKey);
+        window.addEventListener("scroll", close, true);
+        window.addEventListener("resize", close);
+
+        return () => {
+            document.removeEventListener("mousedown", onClickOutside);
+            document.removeEventListener("keydown", onKey);
+            window.removeEventListener("scroll", close, true);
+            window.removeEventListener("resize", close);
+        };
+    }, [menu]);
 
     useEffect(() => {
         if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -53,6 +130,7 @@ export default function Search() {
             setHasSearched(false);
             setLoading(false);
             setErrorMsg(null);
+            setMenu(null);
             return;
         }
 
@@ -77,11 +155,12 @@ export default function Search() {
                     setResults(res.data?.data ?? []);
                     setTotal(res.data?.total ?? 0);
                     setHasSearched(true);
+                    setMenu(null);
                 })
                 .catch((err) => {
                     if (currentRequestId !== requestIdRef.current) return;
 
-                    // eslم-disable-next-line no-console
+                    // eslint-disable-next-line no-console
                     console.error(
                         "[Search] error status:",
                         err.response?.status,
@@ -112,6 +191,7 @@ export default function Search() {
         setTotal(0);
         setHasSearched(false);
         setErrorMsg(null);
+        setMenu(null);
     };
 
     return (
@@ -274,12 +354,92 @@ export default function Search() {
                                             )}
                                         </div>
                                     </div>
+
+                                    {/* زرار الإجراءات */}
+                                    <button
+                                        type="button"
+                                        data-menu-btn
+                                        onClick={(e) => toggleMenu(e, customer)}
+                                        title="الإجراءات"
+                                        aria-haspopup="menu"
+                                        aria-expanded={
+                                            menu?.customer.id === customer.id
+                                        }
+                                        className={`inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg transition ${
+                                            menu?.customer.id === customer.id
+                                                ? "bg-zinc-200 text-zinc-800 dark:bg-zinc-700 dark:text-zinc-100"
+                                                : "bg-zinc-100 text-zinc-500 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
+                                        }`}
+                                    >
+                                        <MoreVertical className="h-4 w-4" />
+                                    </button>
                                 </Link>
                             ))}
                         </div>
                     )}
                 </div>
             </div>
+
+            {/* قايمة الإجراءات */}
+            {menu &&
+                createPortal(
+                    <div
+                        ref={menuRef}
+                        dir="rtl"
+                        role="menu"
+                        style={{
+                            position: "fixed",
+                            top: menu.top,
+                            left: menu.left,
+                            width: MENU_WIDTH,
+                        }}
+                        className="z-[60] overflow-hidden rounded-xl border border-zinc-200 bg-white p-1.5 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
+                    >
+                        <Link
+                            href={route("customers.show", menu.customer.id)}
+                            role="menuitem"
+                            onClick={() => setMenu(null)}
+                            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-right text-sm font-medium text-zinc-700 transition hover:bg-emerald-50 hover:text-emerald-700 dark:text-zinc-200 dark:hover:bg-zinc-800 dark:hover:text-emerald-400"
+                        >
+                            <Eye className="h-4 w-4" />
+                            عرض
+                        </Link>
+
+                        <Link
+                            href={route("customers.edit", menu.customer.id)}
+                            role="menuitem"
+                            onClick={() => setMenu(null)}
+                            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-right text-sm font-medium text-zinc-700 transition hover:bg-blue-50 hover:text-blue-600 dark:text-zinc-200 dark:hover:bg-zinc-800 dark:hover:text-blue-400"
+                        >
+                            <Edit3 className="h-4 w-4" />
+                            تعديل
+                        </Link>
+                        <a
+                            href={route("contracts.ministry", menu.customer.id)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            role="menuitem"
+                            onClick={() => setMenu(null)}
+                            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-right text-sm font-medium text-zinc-700 transition hover:bg-blue-50 hover:text-blue-600 dark:text-zinc-200 dark:hover:bg-zinc-800 dark:hover:text-blue-400"
+                        >
+                            <Landmark className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                            عقد الوزارة
+                        </a>
+
+                        <a
+                            href={route("contracts.company", menu.customer.id)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            role="menuitem"
+                            onClick={() => setMenu(null)}
+                            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-right text-sm font-medium text-zinc-700 transition hover:bg-blue-50 hover:text-blue-600 dark:text-zinc-200 dark:hover:bg-zinc-800 dark:hover:text-blue-400"
+                        >
+                            <Building2 className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                            عقد الشركة
+                        </a>
+                    </div>,
+                    document.body,
+                )}
         </AppLayout>
     );
 }

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 
 class Company extends Model
 {
@@ -13,8 +14,22 @@ class Company extends Model
         'phone',
         'email',
         'country',
-        'gemini_api_key'
+        'gemini_api_key',
+        'token',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (Company $company) {
+            if (empty($company->token)) {
+                do {
+                    $token = Str::random(32);
+                } while (static::where('token', $token)->exists());
+
+                $company->token = $token;
+            }
+        });
+    }
 
     public function users()
     {

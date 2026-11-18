@@ -31,6 +31,7 @@ import {
     UserX,
     Archive,
     FileHeart,
+    BarChart3,
 } from "lucide-react";
 import { useForm } from "@inertiajs/react";
 
@@ -1339,9 +1340,18 @@ export default function Show({
                             )}
                         </div>
 
+                        {/* زر التقرير المالي الجديد */}
+                        <Link
+                            href={route("groups.financial_report", group.id)}
+                            className="flex items-center gap-2 text-xs font-bold px-4 py-2.5 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 shadow-sm transition self-start sm:self-center"
+                        >
+                            <BarChart3 className="w-4 h-4" />
+                            التقرير المالي
+                        </Link>
+
                         <Link
                             href={route("groups.index")}
-                            className="flex items-center gap-2 text-xs font-bold px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 shadow-sm transition self-start sm:self-center"
+                            className="flex items-center gap-2 text-xs font-bold px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 shadow-sm transition self-start sm:self-center"
                         >
                             <ArrowRight className="w-4 h-4" />
                             الرجوع للمجموعات

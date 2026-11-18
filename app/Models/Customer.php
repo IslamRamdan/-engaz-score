@@ -161,4 +161,10 @@ class Customer extends Model
     {
         return $this->belongsToMany(Due::class);
     }
+
+    // في ملف app/Models/Customer.php
+    public function entries()
+    {
+        return $this->hasMany(Entry::class);
+    }
 }

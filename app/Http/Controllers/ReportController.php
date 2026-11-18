@@ -66,4 +66,37 @@ class ReportController extends Controller
             ]);
         }
     }
+
+    public function ministry(Customer $client)
+    {
+        if (auth()->user()->company_id !== $client->company_id) {
+            abort(403, 'غير مصرح لك بالوصول إلى بيانات هذا العميل.');
+        }
+
+        // $client->load(['company', 'tests']);
+
+        return view('Reports.ministry', [
+            'client'  => $client,
+            'company' => $client->company,
+            'date'    => now()->format('Y-m-d'),
+        ]);
+    }
+
+    /**
+     * عرض عقد الشركة الخاص بالعميل
+     */
+    public function company(Customer $client)
+    {
+        if (auth()->user()->company_id !== $client->company_id) {
+            abort(403, 'غير مصرح لك بالوصول إلى بيانات هذا العميل.');
+        }
+
+        // $client->load(['company', 'tests']);
+
+        return view('Reports.contracts', [
+            'client'  => $client,
+            'company' => $client->company,
+            'date'    => now()->format('Y-m-d'),
+        ]);
+    }
 }

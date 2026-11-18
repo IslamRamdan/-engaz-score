@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Entry;
 use App\Models\Customer;
+use App\Models\Group;
 use App\Models\Treasury;
 use App\Models\PaymentMethod;
 use Illuminate\Http\Request;
@@ -56,5 +57,35 @@ class EntryController extends Controller
         $entry->delete();
 
         return redirect()->back()->with('success', 'تم حذف القيد بنجاح');
+    }
+
+    public function financialReport(Group $group)
+    {
+        $group->load(['customers' => function ($query) {
+            $query->withSum('dues as total_dues', 'amount')
+                ->withSum('entries as total_debit', 'debit')   // المدين (الفلوس اللي دفعها)
+                ->withSum('entries as total_credit', 'credit'); // الدائن (الفلوس اللي سحبها)
+        }]);
+
+        return Inertia::render('Groups/FinancialReport', [
+            'group' => $group,
+            'treasuries' => Treasury::all(['id', 'name']),
+            'paymentMethods' => PaymentMethod::all(['id', 'name']),
+        ]);
+    }
+
+    public function statement(Customer $customer)
+    {
+        // تحميل القيود مع بيانات الخزنة وطريقة الدفع مرتبة من الأحدث للأقدم (أو العكس)
+        $customer->load([
+            'entries' => function ($query) {
+                $query->latest()->with(['treasury', 'paymentMethod']);
+            },
+            'dues'
+        ]);
+
+        return Inertia::render('Customers/Statement', [
+            'customer' => $customer,
+        ]);
     }
 }

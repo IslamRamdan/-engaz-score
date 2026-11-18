@@ -218,6 +218,23 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/dues', [DueController::class, 'index'])->name('dues.index');
     Route::post('/dues', [DueController::class, 'store'])->name('dues.store');
     Route::delete('/dues/{due}', [DueController::class, 'destroy'])->name('dues.destroy');
+
+    // حساب التقرير المالي لكل مجموعة
+    Route::get('/groups/{group}/financial-report', [EntryController::class, 'financialReport'])
+        ->name('groups.financial_report');
+
+    // عرض كشف حساب العميل
+    Route::get('/customers/{customer}/statement', [EntryController::class, 'statement'])->name('customers.statement');
+});
+
+Route::middleware(['auth', 'verified'])->group(function () {
+    // مسار عقد الوزارة
+    Route::get('/clients/{client}/contracts/ministry', [ReportController::class, 'ministry'])
+        ->name('contracts.ministry');
+
+    // مسار عقد الشركة
+    Route::get('/clients/{client}/contracts/company', [ReportController::class, 'company'])
+        ->name('contracts.company');
 });
 
 
