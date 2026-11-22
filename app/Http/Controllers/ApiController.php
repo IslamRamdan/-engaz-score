@@ -152,6 +152,7 @@ class ApiController extends Controller
             ], 404);
         }
         $validatedData['company_id'] = $company->id;
+        $validatedData['status'] = 'test'; // وضع العميل كنشط افتراضي
 
         foreach ($imageFields as $field) {
             if ($request->hasFile($field)) {

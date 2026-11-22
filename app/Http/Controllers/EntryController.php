@@ -96,6 +96,8 @@ class EntryController extends Controller
 
         return Inertia::render('Customers/Statement', [
             'customer' => $customer,
+            'treasuries'     => Treasury::select('id', 'name')->get(),
+            'paymentMethods' => PaymentMethod::select('id', 'name')->get(),
         ]);
     }
 }

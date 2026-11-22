@@ -65,6 +65,7 @@ class Customer extends Model
         // ملاحظات
         'notes',
         "gender",
+        'status',
     ];
 
     protected $casts = [

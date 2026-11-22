@@ -1,7 +1,7 @@
 import React, { useMemo } from "react";
-import { Link } from "@inertiajs/react";
+import { Link, useForm, usePage } from "@inertiajs/react";
 import AppLayout from "@/Layouts/AppLayout";
-import { ReceiptButton } from "@/Components/ReceiptUpload";
+import ReceiptUpload, { ReceiptButton } from "@/Components/ReceiptUpload";
 import {
     ArrowRight,
     Wallet,
@@ -56,10 +56,20 @@ interface Customer {
 
 interface StatementProps {
     customer: Customer;
+    treasuries?: Treasury[];
+    paymentMethods?: PaymentMethod[];
 }
 
 const card =
     "rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900";
+
+const field =
+    "w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 transition placeholder:text-gray-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white dark:placeholder:text-neutral-500";
+
+const label =
+    "mb-1 block text-xs font-medium text-gray-600 dark:text-neutral-400";
+
+const errorText = "mt-1 block text-xs text-red-500";
 
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
@@ -144,7 +154,71 @@ function EmptyState({ text }: { text: string }) {
     );
 }
 
-export default function CustomerStatement({ customer }: StatementProps) {
+export default function CustomerStatement({
+    customer,
+    treasuries = [],
+    paymentMethods = [],
+}: StatementProps) {
+    const {
+        data,
+        setData,
+        post,
+        processing,
+        errors,
+        reset,
+        setError,
+        clearErrors,
+        transform,
+    } = useForm({
+        treasury_id: "",
+        payment_method_id: "",
+        type: "debit" as "debit" | "credit",
+        amount: "",
+        description: "",
+        receipt: null as File | null,
+    });
+
+    // بيتحول للشكل اللي الـ backend مستنيه (debit / credit) والعميل ثابت
+    transform((d) => ({
+        customer_id: customer.id,
+        treasury_id: d.treasury_id,
+        payment_method_id: d.payment_method_id,
+        description: d.description,
+        debit: d.type === "debit" ? d.amount : "0",
+        credit: d.type === "credit" ? d.amount : "0",
+        receipt: d.receipt,
+    }));
+
+    const { flash } = usePage<any>().props;
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        clearErrors();
+
+        if (!(Number(data.amount) > 0)) {
+            setError("amount", "اكتب مبلغ أكبر من صفر");
+            return;
+        }
+
+        post("/entries", {
+            preserveScroll: true,
+            forceFormData: true, // مهم لرفع الملفات
+            // نوع القيد بيفضل زي ما هو عشان تسجّل كذا قيد ورا بعض
+            onSuccess: () =>
+                reset(
+                    "treasury_id",
+                    "payment_method_id",
+                    "amount",
+                    "description",
+                    "receipt",
+                ),
+        });
+    };
+
+    const amountError =
+        errors.amount || (errors as any).debit || (errors as any).credit;
+    const isDebit = data.type === "debit";
+
     const stats = useMemo(() => {
         const dues = [...(customer.dues || [])].sort(byDateAsc);
         const entries = [...(customer.entries || [])].sort(byDateAsc);
@@ -347,6 +421,196 @@ export default function CustomerStatement({ customer }: StatementProps) {
                                 </div>
                             </div>
                         )}
+                    </div>
+
+                    {/* ===== فورم إضافة قيد ===== */}
+                    <div className={`${card} p-4 sm:p-5 print:hidden`}>
+                        <div className="mb-4 flex items-center gap-3">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400">
+                                <Wallet className="h-5 w-5" />
+                            </div>
+                            <div>
+                                <h3 className="text-base font-bold text-gray-900 dark:text-white">
+                                    إضافة قيد جديد
+                                </h3>
+                                <p className="text-xs text-gray-500 dark:text-neutral-400">
+                                    سجّل قيد جديد على حساب{" "}
+                                    <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                                        {customerName}
+                                    </span>
+                                </p>
+                            </div>
+                        </div>
+
+                        {flash?.success && (
+                            <div className="mb-4 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-2.5 text-sm text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-950/60 dark:text-emerald-300">
+                                <CheckCircle2 className="h-4 w-4 shrink-0" />
+                                {flash.success}
+                            </div>
+                        )}
+
+                        <form onSubmit={handleSubmit} className="space-y-4">
+                            {/* نوع القيد فوق */}
+                            <div className="inline-grid w-full max-w-xs grid-cols-2 gap-1 rounded-xl bg-gray-100 p-1 dark:bg-neutral-800">
+                                <button
+                                    type="button"
+                                    onClick={() => setData("type", "debit")}
+                                    aria-pressed={isDebit}
+                                    className={`rounded-lg px-4 py-2 text-sm font-bold transition ${
+                                        isDebit
+                                            ? "bg-emerald-600 text-white shadow-sm"
+                                            : "text-gray-600 hover:bg-white dark:text-neutral-300 dark:hover:bg-neutral-700"
+                                    }`}
+                                >
+                                    مدين
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setData("type", "credit")}
+                                    aria-pressed={!isDebit}
+                                    className={`rounded-lg px-4 py-2 text-sm font-bold transition ${
+                                        !isDebit
+                                            ? "bg-red-600 text-white shadow-sm"
+                                            : "text-gray-600 hover:bg-white dark:text-neutral-300 dark:hover:bg-neutral-700"
+                                    }`}
+                                >
+                                    دائن
+                                </button>
+                            </div>
+
+                            {/* باقي الحقول في صف واحد */}
+                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:items-start">
+                                <div>
+                                    <label className={label}>الخزنة</label>
+                                    <select
+                                        value={data.treasury_id}
+                                        onChange={(e) =>
+                                            setData(
+                                                "treasury_id",
+                                                e.target.value,
+                                            )
+                                        }
+                                        className={field}
+                                    >
+                                        <option value="">اختر الخزنة</option>
+                                        {treasuries.map((t) => (
+                                            <option key={t.id} value={t.id}>
+                                                {t.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    {errors.treasury_id && (
+                                        <span className={errorText}>
+                                            {errors.treasury_id}
+                                        </span>
+                                    )}
+                                </div>
+
+                                <div>
+                                    <label className={label}>
+                                        طريقة الاستلام
+                                    </label>
+                                    <select
+                                        value={data.payment_method_id}
+                                        onChange={(e) =>
+                                            setData(
+                                                "payment_method_id",
+                                                e.target.value,
+                                            )
+                                        }
+                                        className={field}
+                                    >
+                                        <option value="">اختر الطريقة</option>
+                                        {paymentMethods.map((p) => (
+                                            <option key={p.id} value={p.id}>
+                                                {p.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    {errors.payment_method_id && (
+                                        <span className={errorText}>
+                                            {errors.payment_method_id}
+                                        </span>
+                                    )}
+                                </div>
+
+                                <div>
+                                    <label className={label}>المبلغ</label>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        inputMode="decimal"
+                                        value={data.amount}
+                                        placeholder="0.00"
+                                        onChange={(e) =>
+                                            setData("amount", e.target.value)
+                                        }
+                                        className={`${field} tabular-nums ${
+                                            amountError
+                                                ? "border-red-500 focus:ring-red-500/60"
+                                                : ""
+                                        }`}
+                                    />
+                                    {amountError && (
+                                        <span className={errorText}>
+                                            {amountError}
+                                        </span>
+                                    )}
+                                </div>
+
+                                <div>
+                                    <label className={label}>
+                                        الوصف / البيان
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={data.description}
+                                        onChange={(e) =>
+                                            setData(
+                                                "description",
+                                                e.target.value,
+                                            )
+                                        }
+                                        placeholder="وصف مختصر للقيد..."
+                                        className={field}
+                                    />
+                                    {errors.description && (
+                                        <span className={errorText}>
+                                            {errors.description}
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* الإيصال + زرار الحفظ */}
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                                <div className="flex-1">
+                                    <label className={label}>
+                                        صورة الإيصال (اختياري)
+                                    </label>
+                                    <ReceiptUpload
+                                        value={data.receipt}
+                                        onChange={(file) =>
+                                            setData("receipt", file)
+                                        }
+                                        error={errors.receipt}
+                                    />
+                                </div>
+
+                                <button
+                                    type="submit"
+                                    disabled={processing}
+                                    className={`whitespace-nowrap rounded-xl px-8 py-2 text-sm font-medium text-white shadow-sm transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 ${
+                                        isDebit
+                                            ? "bg-emerald-600 hover:bg-emerald-500"
+                                            : "bg-red-600 hover:bg-red-500"
+                                    }`}
+                                >
+                                    {processing ? "جاري الحفظ..." : "حفظ القيد"}
+                                </button>
+                            </div>
+                        </form>
                     </div>
 
                     {/* ===== جدول الاستحقاقات ===== */}

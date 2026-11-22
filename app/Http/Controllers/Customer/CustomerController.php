@@ -753,4 +753,23 @@ PROMPT;
             ->limit(20)
             ->get();
     }
+
+    public function testCustomers()
+    {
+        $companyId = auth()->user()->company_id;
+
+        $customers = Customer::query()->with(['latestDelegate', 'groups'])
+            ->where('company_id', $companyId)
+            ->where('status', 'test')
+            ->latest()
+            ->paginate(15)
+            ->withQueryString();
+        $groups = Group::where('company_id', auth()->user()->company_id)->get();
+
+
+        return Inertia::render('Customers/TestCustomers', [
+            'customers' => $customers,
+            'groups' => $groups,
+        ]);
+    }
 }

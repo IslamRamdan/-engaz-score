@@ -30,6 +30,10 @@ Route::get('/', function () {
         'phpVersion' => PHP_VERSION,
     ]);
 });
+Route::middleware(['auth'])->group(function () {
+    Route::get('/customer-test', [CustomerController::class, 'testCustomers'])
+        ->name('customers.test');
+});
 
 Route::get('/dashboard', function () {
     // جلب آيدي الشركة المرتبطة باليوزر الحالي مباشرة
@@ -56,6 +60,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/company/settings', [CompanyRegisterController::class, 'edit'])->name('company.edit');
     Route::put('/company/{company}', [CompanyRegisterController::class, 'update'])->name('company.update');
 });
+
+
 
 Route::middleware(['auth'])->group(function () {
 
@@ -90,6 +96,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('/visas/{visa}', [VisaController::class, 'update'])->name('visas.update');
     Route::delete('/visas/{visa}', [VisaController::class, 'destroy'])->name('visas.destroy');
 });
+
 
 Route::middleware(['auth'])->group(function () {
 

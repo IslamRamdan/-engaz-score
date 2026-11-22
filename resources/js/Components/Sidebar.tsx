@@ -47,6 +47,12 @@ export default function Sidebar({
             hasDot: true,
         },
         { href: "/customers", label: "العملاء", icon: "👤", hasDot: true }, // مستخدم مفرد يمثل العميل
+        {
+            href: "/customer-test",
+            label: "عملاء الاختبار",
+            icon: "👨‍💼",
+            hasDot: true,
+        },
         { href: "/groups", label: "المجموعات", icon: "👥", hasDot: true }, // مستخدمين متعددين يمثلون المجموعة
         { href: "/delegates", label: "المناديب", icon: "💼", hasDot: true }, // حقيبة عمل تمثل المندوب أو الوكيل
         { href: "/sponsors", label: "الكفلاء", icon: "🏢", hasDot: false }, // مبنى أو شركة تمثل جهة الكفالة
