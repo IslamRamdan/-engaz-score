@@ -232,14 +232,6 @@ export default function Index({
                                     </div>
                                 )}
                         </div>
-
-                        <Link
-                            href={route("customers.create")}
-                            className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm rounded-2xl transition-all shadow-sm"
-                        >
-                            <UserPlus className="w-4 h-4" />
-                            <span>إضافة عميل جديد</span>
-                        </Link>
                     </div>
                 </div>
 
