@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useForm, usePage, Link } from "@inertiajs/react";
 import AppLayout from "@/Layouts/AppLayout";
+import ReceiptUpload from "@/Components/ReceiptUpload";
 import {
     BarChart3,
     ArrowRight,
@@ -426,6 +427,7 @@ export default function FinancialReport({
         type: "debit" as "debit" | "credit",
         amount: "",
         description: "",
+        receipt: null as File | null,
     });
 
     // بيتحول للشكل اللي الـ backend مستنيه (debit / credit)
@@ -436,6 +438,7 @@ export default function FinancialReport({
         description: d.description,
         debit: d.type === "debit" ? d.amount : "0",
         credit: d.type === "credit" ? d.amount : "0",
+        receipt: d.receipt,
     }));
 
     const { flash } = usePage<any>().props;
@@ -514,6 +517,7 @@ export default function FinancialReport({
 
         post("/entries", {
             preserveScroll: true,
+            forceFormData: true, // مهم لرفع الملفات
             // نوع القيد بيفضل زي ما هو عشان تسجّل كذا قيد ورا بعض
             onSuccess: () =>
                 reset(
@@ -522,6 +526,7 @@ export default function FinancialReport({
                     "payment_method_id",
                     "amount",
                     "description",
+                    "receipt",
                 ),
         });
     };
@@ -610,7 +615,7 @@ export default function FinancialReport({
                             </div>
 
                             {/* باقي الحقول في صف واحد */}
-                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr_1.4fr_auto] lg:items-start">
+                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr_1.4fr] lg:items-start">
                                 <div>
                                     <label className={label}>العميل</label>
                                     <CustomerCombobox
@@ -728,22 +733,34 @@ export default function FinancialReport({
                                         </span>
                                     )}
                                 </div>
+                            </div>
 
-                                <div className="sm:col-span-2 lg:col-span-1 lg:pt-[22px]">
-                                    <button
-                                        type="submit"
-                                        disabled={processing}
-                                        className={`w-full whitespace-nowrap rounded-xl px-6 py-2 text-sm font-medium text-white shadow-sm transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 ${
-                                            isDebit
-                                                ? "bg-emerald-600 hover:bg-emerald-500"
-                                                : "bg-red-600 hover:bg-red-500"
-                                        }`}
-                                    >
-                                        {processing
-                                            ? "جاري الحفظ..."
-                                            : "حفظ القيد"}
-                                    </button>
+                            {/* الإيصال + زرار الحفظ */}
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                                <div className="flex-1">
+                                    <label className={label}>
+                                        صورة الإيصال (اختياري)
+                                    </label>
+                                    <ReceiptUpload
+                                        value={data.receipt}
+                                        onChange={(file) =>
+                                            setData("receipt", file)
+                                        }
+                                        error={errors.receipt}
+                                    />
                                 </div>
+
+                                <button
+                                    type="submit"
+                                    disabled={processing}
+                                    className={`whitespace-nowrap rounded-xl px-8 py-2 text-sm font-medium text-white shadow-sm transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 ${
+                                        isDebit
+                                            ? "bg-emerald-600 hover:bg-emerald-500"
+                                            : "bg-red-600 hover:bg-red-500"
+                                    }`}
+                                >
+                                    {processing ? "جاري الحفظ..." : "حفظ القيد"}
+                                </button>
                             </div>
                         </form>
                     </div>

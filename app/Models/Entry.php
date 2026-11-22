@@ -14,6 +14,7 @@ class Entry extends Model
         'debit',
         'credit',
         'description',
+        'receipt',
     ];
 
     public function customer()
@@ -29,5 +30,11 @@ class Entry extends Model
     public function paymentMethod()
     {
         return $this->belongsTo(PaymentMethod::class);
+    }
+    protected $appends = ['receipt_url'];
+
+    public function getReceiptUrlAttribute(): ?string
+    {
+        return $this->receipt ? asset('storage/' . $this->receipt) : null;
     }
 }

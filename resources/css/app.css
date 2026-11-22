@@ -6,3 +6,15 @@
 body {
     font-family: "Cairo", sans-serif !important;
 }
+.is-empty {
+    border-color: #f87171 !important;
+    background-color: #fef2f2 !important;
+}
+.is-empty:focus {
+    border-color: #ef4444 !important;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2) !important;
+}
+.dark .is-empty {
+    background-color: rgba(127, 29, 29, 0.2) !important;
+    border-color: #ef4444 !important;
+}

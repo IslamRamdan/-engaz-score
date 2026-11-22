@@ -1,4 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from "react";
+import { createPortal } from "react-dom";
 import AppLayout from "@/Layouts/AppLayout";
 import { Head, useForm, Link } from "@inertiajs/react";
 import ReactCrop, {
@@ -79,7 +80,7 @@ async function getCroppedFile(
     });
 }
 
-// ─── مودال الاقتصاص (react-easy-crop) ───────────────────────────────────
+// ─── مودال الاقتصاص (react-image-crop) ──────────────────────────────────
 function ImageCropModal({
     file,
     onCancel,
@@ -91,8 +92,8 @@ function ImageCropModal({
 }) {
     const [imgUrl, setImgUrl] = useState<string>("");
     const [crop, setCrop] = useState<Crop>();
-    const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
     const [aspect, setAspect] = useState<number | undefined>(undefined); // undefined = حرية كاملة بدون نسبة ثابتة
+    const [zoom, setZoom] = useState(40); // ارتفاع الصورة بالنسبة لـ vh (تحكم في حجمها داخل النافذة)
     const [isSaving, setIsSaving] = useState(false);
     const imgRef = useRef<HTMLImageElement | null>(null);
 
@@ -102,7 +103,7 @@ function ImageCropModal({
         return () => URL.revokeObjectURL(url);
     }, [file]);
 
-    // عند تحميل الصورة: منطقة اقتصاص افتراضية تغطي 90% من الصورة، والمستخدم يعدّلها بحرية بالماوس
+    // عند تحميل الصورة: منطقة اقتصاص افتراضية تغطي 90% من الصورة
     const onImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
         const { width, height } = e.currentTarget;
         setCrop(
@@ -135,12 +136,25 @@ function ImageCropModal({
     };
 
     const handleConfirm = async () => {
-        if (!completedCrop || !imgRef.current) return;
+        if (!crop || !imgRef.current) return;
         setIsSaving(true);
         try {
+            const img = imgRef.current;
+            // نحسب البكسل من النسبة المئوية الحالية، فيشتغل صح حتى لو غيّرت التكبير
+            const pixelCrop: PixelCrop =
+                crop.unit === "%"
+                    ? {
+                          unit: "px",
+                          x: (crop.x / 100) * img.width,
+                          y: (crop.y / 100) * img.height,
+                          width: (crop.width / 100) * img.width,
+                          height: (crop.height / 100) * img.height,
+                      }
+                    : (crop as PixelCrop);
+
             const croppedFile = await getCroppedFile(
-                imgRef.current,
-                completedCrop,
+                img,
+                pixelCrop,
                 file.name,
                 file.type || "image/png",
             );
@@ -154,90 +168,111 @@ function ImageCropModal({
 
     if (!imgUrl) return null;
 
-    return (
+    const aspectBtn = (active: boolean) =>
+        `px-3 py-1.5 rounded-lg text-xs font-black transition-colors ${
+            active
+                ? "bg-emerald-600 text-white"
+                : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400"
+        }`;
+
+    return createPortal(
         <div
-            className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-6"
+            style={{
+                position: "fixed",
+                top: 0,
+                left: 0,
+                width: "100vw",
+                height: "100vh",
+                zIndex: 9999,
+                background: "rgba(0,0,0,0.85)",
+            }}
             onClick={onCancel}
         >
             <div
-                className="bg-white dark:bg-zinc-900 rounded-2xl p-5 space-y-4 max-w-2xl w-full"
+                style={{ width: "100vw", height: "100vh" }}
+                className="bg-white dark:bg-zinc-900 p-5 flex flex-col gap-4"
                 onClick={(e) => e.stopPropagation()}
             >
-                <div className="flex items-center justify-between">
+                {/* الهيدر + النسب + التكبير */}
+                <div className="flex items-center justify-between flex-wrap gap-3">
                     <h3 className="text-sm font-black text-zinc-800 dark:text-zinc-100">
                         اقتصاص الصورة
                     </h3>
-                    {/* أزرار اختيار نسبة الاقتصاص */}
+
+                    <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-bold text-zinc-400">
+                            حجم الصورة
+                        </span>
+                        <input
+                            type="range"
+                            min={15}
+                            max={90}
+                            value={zoom}
+                            onChange={(e) => setZoom(Number(e.target.value))}
+                            className="w-32 accent-emerald-600"
+                        />
+                    </div>
+
                     <div className="flex items-center gap-1.5">
                         <button
                             type="button"
                             onClick={() => applyAspect(undefined)}
-                            className={`px-2.5 py-1 rounded-lg text-[10px] font-black transition-colors ${
-                                aspect === undefined
-                                    ? "bg-emerald-600 text-white"
-                                    : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400"
-                            }`}
+                            className={aspectBtn(aspect === undefined)}
                         >
                             حر
                         </button>
                         <button
                             type="button"
                             onClick={() => applyAspect(1)}
-                            className={`px-2.5 py-1 rounded-lg text-[10px] font-black transition-colors ${
-                                aspect === 1
-                                    ? "bg-emerald-600 text-white"
-                                    : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400"
-                            }`}
+                            className={aspectBtn(aspect === 1)}
                         >
                             1:1
                         </button>
                         <button
                             type="button"
                             onClick={() => applyAspect(4 / 3)}
-                            className={`px-2.5 py-1 rounded-lg text-[10px] font-black transition-colors ${
-                                aspect === 4 / 3
-                                    ? "bg-emerald-600 text-white"
-                                    : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400"
-                            }`}
+                            className={aspectBtn(aspect === 4 / 3)}
                         >
                             4:3
                         </button>
                     </div>
                 </div>
 
-                {/* منطقة الكروب - قابلة للسحب والتحجيم بالماوس بحرية كاملة (سحب الحواف والأركان) */}
-                <div className="max-h-[500px] overflow-auto bg-zinc-900 rounded-xl flex items-center justify-center p-2">
-                    <ReactCrop
-                        crop={crop}
-                        onChange={(_, percentCrop) => setCrop(percentCrop)}
-                        onComplete={(c) => setCompletedCrop(c)}
-                        aspect={aspect}
-                        className="max-w-full"
-                    >
-                        {/* eslint-disable-next-line jsx-a11y/alt-text */}
-                        <img
-                            ref={imgRef}
-                            src={imgUrl}
-                            onLoad={onImageLoad}
-                            className="max-h-[480px] w-auto"
-                        />
-                    </ReactCrop>
+                {/* منطقة كبيرة: الصورة صغيرة في النص وحواليها مساحة فاضية */}
+                <div className="flex-1 min-h-0 overflow-auto bg-zinc-950 rounded-xl">
+                    <div className="min-h-full min-w-full flex items-center justify-center p-16">
+                        <ReactCrop
+                            crop={crop}
+                            onChange={(_, percentCrop) => setCrop(percentCrop)}
+                            aspect={aspect}
+                            keepSelection
+                        >
+                            {/* eslint-disable-next-line jsx-a11y/alt-text */}
+                            <img
+                                ref={imgRef}
+                                src={imgUrl}
+                                onLoad={onImageLoad}
+                                style={{ maxHeight: `${zoom}vh` }}
+                                className="w-auto max-w-none block"
+                            />
+                        </ReactCrop>
+                    </div>
                 </div>
 
-                <div className="flex gap-3 justify-end pt-2">
+                <div className="flex gap-3 justify-end">
                     <button
                         type="button"
                         onClick={onCancel}
                         disabled={isSaving}
-                        className="px-4 py-2 rounded-xl text-xs font-bold bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 disabled:opacity-50"
+                        className="px-5 py-2.5 rounded-xl text-xs font-bold bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 disabled:opacity-50"
                     >
                         إلغاء
                     </button>
                     <button
                         type="button"
                         onClick={handleConfirm}
-                        disabled={isSaving || !completedCrop}
-                        className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 inline-flex items-center gap-2"
+                        disabled={isSaving || !crop}
+                        className="px-5 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 inline-flex items-center gap-2"
                     >
                         {isSaving ? (
                             <>
@@ -250,7 +285,8 @@ function ImageCropModal({
                     </button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body,
     );
 }
 
@@ -462,6 +498,87 @@ function Field({
     );
 }
 
+// ─── محافظات مصر ──────────────────────────────────────────────────────────────
+const GOVERNORATES = [
+    "القاهرة",
+    "الجيزة",
+    "الإسكندرية",
+    "القليوبية",
+    "الشرقية",
+    "الدقهلية",
+    "الغربية",
+    "المنوفية",
+    "كفر الشيخ",
+    "البحيرة",
+    "دمياط",
+    "بورسعيد",
+    "الإسماعيلية",
+    "السويس",
+    "شمال سيناء",
+    "جنوب سيناء",
+    "الفيوم",
+    "بني سويف",
+    "المنيا",
+    "أسيوط",
+    "سوهاج",
+    "قنا",
+    "الأقصر",
+    "أسوان",
+    "البحر الأحمر",
+    "الوادي الجديد",
+    "مطروح",
+];
+
+// ─── مطابقة اسم المحافظة مع القائمة (يتجاهل اختلافات الكتابة العربية) ─────────
+// بيشيل التشكيل والمسافات و"محافظة" و"ال"، ويوحّد (أ إ آ → ا) و(ى → ي) و(ة → ه)
+const normalizeAr = (v: string) =>
+    v
+        .replace(/[\u064B-\u0652\u0640]/g, "") // تشكيل + تطويل
+        .replace(/[أإآٱ]/g, "ا")
+        .replace(/ى/g, "ي")
+        .replace(/ة/g, "ه")
+        .replace(/ئ/g, "ي")
+        .replace(/ؤ/g, "و")
+        .replace(/محافظ[هة]/g, "")
+        .replace(/\s+/g, "")
+        .replace(/^ال/, "")
+        .toLowerCase();
+
+const GOV_KEYS = GOVERNORATES.map((g) => ({ name: g, key: normalizeAr(g) }));
+
+// أسماء بديلة شائعة
+const GOV_ALIASES: Record<string, string> = {
+    سيناءالشماليه: "شمال سيناء",
+    سيناءالجنوبيه: "جنوب سيناء",
+    مرسيمطروح: "مطروح",
+    الاسكندريه: "الإسكندرية",
+};
+
+// بترجّع اسم المحافظة الصح من القائمة، ولو مفيش تطابق بترجّع القيمة الأصلية زي ما هي
+function matchGovernorate(value?: string | null): string {
+    const raw = (value ?? "").trim();
+    if (!raw) return "";
+    const key = normalizeAr(raw);
+
+    // 1) تطابق تام بعد التوحيد
+    const exact = GOV_KEYS.find((g) => g.key === key);
+    if (exact) return exact.name;
+
+    // 2) أسماء بديلة
+    const alias = GOV_ALIASES[key];
+    if (alias) return alias;
+
+    // 3) تطابق جزئي (مثلاً "مرسى مطروح") بشرط يكون نتيجة واحدة بس
+    if (key.length >= 3) {
+        const partial = GOV_KEYS.filter(
+            (g) => key.includes(g.key) || g.key.includes(key),
+        );
+        if (partial.length === 1) return partial[0].name;
+    }
+
+    return raw;
+}
+
 // ─── تحويل yyyy-mm-dd ↔ dd/mm/yyyy ──────────────────────────────────────────
 // المتصفح يُرجع القيمة دائماً بـ yyyy-mm-dd، نحوّلها للعرض فقط
 function toDisplay(iso: string) {
@@ -575,7 +692,8 @@ export default function Create({
                     p.passport_issue_place || prev.passport_issue_place,
                 mrz: p.mrz || prev.mrz,
                 address: p.address || prev.address,
-                governorate: p.governorate || prev.governorate,
+                governorate:
+                    matchGovernorate(p.governorate) || prev.governorate,
                 national_id: p.national_id || prev.national_id,
             }));
         } catch (err) {
@@ -849,8 +967,7 @@ export default function Create({
                                             </select>
                                         </Field>
                                         <Field label="المحافظة">
-                                            <input
-                                                type="text"
+                                            <select
                                                 value={data.governorate}
                                                 onChange={(e) =>
                                                     setData(
@@ -858,9 +975,32 @@ export default function Create({
                                                         e.target.value,
                                                     )
                                                 }
-                                                className={inputCls}
-                                                placeholder="المحافظة الحالية..."
-                                            />
+                                                className={
+                                                    inputCls + " text-center"
+                                                }
+                                            >
+                                                <option value="">
+                                                    اختر المحافظة
+                                                </option>
+                                                {/* لو القيمة الحالية مش في القائمة نعرضها برضه */}
+                                                {data.governorate &&
+                                                    !GOVERNORATES.includes(
+                                                        data.governorate,
+                                                    ) && (
+                                                        <option
+                                                            value={
+                                                                data.governorate
+                                                            }
+                                                        >
+                                                            {data.governorate}
+                                                        </option>
+                                                    )}
+                                                {GOVERNORATES.map((g) => (
+                                                    <option key={g} value={g}>
+                                                        {g}
+                                                    </option>
+                                                ))}
+                                            </select>
                                         </Field>
 
                                         <Field

@@ -204,16 +204,19 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/payment-methods', [PaymentMethodController::class, 'store'])->name('payment-methods.store');
     Route::delete('/payment-methods/{paymentMethod}', [PaymentMethodController::class, 'destroy'])->name('payment-methods.destroy');
 });
+
 Route::middleware(['auth'])->group(function () {
     Route::get('/treasuries', [TreasuryController::class, 'index'])->name('treasuries.index');
     Route::post('/treasuries', [TreasuryController::class, 'store'])->name('treasuries.store');
     Route::delete('/treasuries/{treasury}', [TreasuryController::class, 'destroy'])->name('treasuries.destroy');
 });
+
 Route::middleware(['auth'])->group(function () {
     Route::get('/entries', [EntryController::class, 'index'])->name('entries.index');
     Route::post('/entries', [EntryController::class, 'store'])->name('entries.store');
     Route::delete('/entries/{entry}', [EntryController::class, 'destroy'])->name('entries.destroy');
 });
+
 Route::middleware(['auth'])->group(function () {
     Route::get('/dues', [DueController::class, 'index'])->name('dues.index');
     Route::post('/dues', [DueController::class, 'store'])->name('dues.store');

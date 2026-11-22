@@ -535,16 +535,19 @@ PROMPT;
         $search = trim((string) $request->input('search', ''));
 
         if ($search === '') {
-            return response()->json([
-                'data' => [],
-                'total' => 0,
-            ]);
+            return response()->json(['data' => [], 'total' => 0]);
         }
 
         $companyId = auth()->user()->company_id;
 
-        // ننضّف نص البحث: نشيل أي مسافات أو أسطر جديدة أو رجوع أسطر
         $cleanSearch = preg_replace('/\s+/', '', $search);
+
+        // كلمات البحث بعد التطبيع (كل كلمة لازم تكون موجودة في الاسم بأي ترتيب)
+        $normalized = $this->normalizeArabic($search);
+        $tokens = $normalized === '' ? [] : array_values(array_unique(explode(' ', $normalized)));
+
+        // الاسم العربي + الإنجليزي بعد التطبيع داخل الـ SQL
+        $nameSql = $this->sqlNormalizeArabic("CONCAT_WS(' ', name_ar, name_en)");
 
         $customers = Customer::query()
             ->where('company_id', $companyId)
@@ -559,12 +562,20 @@ PROMPT;
                 'whatsapp',
                 'mrz',
             ])
-            ->where(function ($q) use ($search, $cleanSearch) {
-                $q->where('name_ar', 'like', "%{$search}%")
-                    ->orWhere('name_en', 'like', "%{$search}%")
-                    ->orWhere('passport_number', 'like', "%{$search}%")
+            ->where(function ($q) use ($search, $cleanSearch, $tokens, $nameSql) {
+                if ($tokens) {
+                    $q->where(function ($names) use ($tokens, $nameSql) {
+                        foreach ($tokens as $token) {
+                            $names->whereRaw(
+                                "{$nameSql} LIKE ?",
+                                ['%' . addcslashes($token, '\\%_') . '%']
+                            );
+                        }
+                    });
+                }
+
+                $q->orWhere('passport_number', 'like', "%{$search}%")
                     ->orWhere('national_id', 'like', "%{$search}%")
-                    // نقارن نسخة منضفة من عمود mrz (بدون مسافات/أسطر) بنسخة منضفة من نص البحث
                     ->orWhereRaw(
                         "REPLACE(REPLACE(REPLACE(mrz, '\\n', ''), '\\r', ''), ' ', '') LIKE ?",
                         ["%{$cleanSearch}%"]
@@ -578,6 +589,53 @@ PROMPT;
             'data' => $customers,
             'total' => $customers->count(),
         ]);
+    }
+
+    /** الحروف اللي بتتوحّد (القيمة الفاضية = الحرف بيتشال) */
+    private function arabicMap(): array
+    {
+        return [
+            'أ' => 'ا',
+            'إ' => 'ا',
+            'آ' => 'ا',
+            'ٱ' => 'ا',
+            'ى' => 'ي',
+            'ئ' => 'ي',
+            'ؤ' => 'و',
+            'ة' => 'ه',
+            'ء' => '',
+            "\u{0640}" => '',                                      // التطويل
+            "\u{064B}" => '',
+            "\u{064C}" => '',
+            "\u{064D}" => '',  // التشكيل
+            "\u{064E}" => '',
+            "\u{064F}" => '',
+            "\u{0650}" => '',
+            "\u{0651}" => '',
+            "\u{0652}" => '',
+        ];
+    }
+
+    /** تطبيع نص البحث في PHP */
+    private function normalizeArabic(string $text): string
+    {
+        // حروف مخفية، والمسافة الغريبة (NBSP) تبقى مسافة عادية
+        $text = preg_replace('/[\x{200B}-\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}\x{FEFF}]/u', '', $text);
+        $text = str_replace("\u{00A0}", ' ', $text);
+
+        $text = strtr($text, $this->arabicMap());
+
+        return trim(preg_replace('/\s+/u', ' ', mb_strtolower($text)));
+    }
+
+    /** نفس التطبيع بس كتعبير SQL على عمود (MySQL) */
+    private function sqlNormalizeArabic(string $expression): string
+    {
+        foreach ($this->arabicMap() as $from => $to) {
+            $expression = "REPLACE({$expression}, '{$from}', '{$to}')";
+        }
+
+        return $expression;
     }
 
     public function export(Request $request)

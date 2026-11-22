@@ -125,6 +125,87 @@ interface ExtractedPassportData {
     mrz?: string;
 }
 
+// ─── محافظات مصر ──────────────────────────────────────────────────────────────
+const GOVERNORATES = [
+    "القاهرة",
+    "الجيزة",
+    "الإسكندرية",
+    "القليوبية",
+    "الشرقية",
+    "الدقهلية",
+    "الغربية",
+    "المنوفية",
+    "كفر الشيخ",
+    "البحيرة",
+    "دمياط",
+    "بورسعيد",
+    "الإسماعيلية",
+    "السويس",
+    "شمال سيناء",
+    "جنوب سيناء",
+    "الفيوم",
+    "بني سويف",
+    "المنيا",
+    "أسيوط",
+    "سوهاج",
+    "قنا",
+    "الأقصر",
+    "أسوان",
+    "البحر الأحمر",
+    "الوادي الجديد",
+    "مطروح",
+];
+
+// ─── مطابقة اسم المحافظة مع القائمة (يتجاهل اختلافات الكتابة العربية) ─────────
+// بيشيل التشكيل والمسافات و"محافظة" و"ال"، ويوحّد (أ إ آ → ا) و(ى → ي) و(ة → ه)
+const normalizeAr = (v: string) =>
+    v
+        .replace(/[\u064B-\u0652\u0640]/g, "") // تشكيل + تطويل
+        .replace(/[أإآٱ]/g, "ا")
+        .replace(/ى/g, "ي")
+        .replace(/ة/g, "ه")
+        .replace(/ئ/g, "ي")
+        .replace(/ؤ/g, "و")
+        .replace(/محافظ[هة]/g, "")
+        .replace(/\s+/g, "")
+        .replace(/^ال/, "")
+        .toLowerCase();
+
+const GOV_KEYS = GOVERNORATES.map((g) => ({ name: g, key: normalizeAr(g) }));
+
+// أسماء بديلة شائعة
+const GOV_ALIASES: Record<string, string> = {
+    سيناءالشماليه: "شمال سيناء",
+    سيناءالجنوبيه: "جنوب سيناء",
+    مرسيمطروح: "مطروح",
+    الاسكندريه: "الإسكندرية",
+};
+
+// بترجّع اسم المحافظة الصح من القائمة، ولو مفيش تطابق بترجّع القيمة الأصلية زي ما هي
+function matchGovernorate(value?: string | null): string {
+    const raw = (value ?? "").trim();
+    if (!raw) return "";
+    const key = normalizeAr(raw);
+
+    // 1) تطابق تام بعد التوحيد
+    const exact = GOV_KEYS.find((g) => g.key === key);
+    if (exact) return exact.name;
+
+    // 2) أسماء بديلة
+    const alias = GOV_ALIASES[key];
+    if (alias) return alias;
+
+    // 3) تطابق جزئي (مثلاً "مرسى مطروح") بشرط يكون نتيجة واحدة بس
+    if (key.length >= 3) {
+        const partial = GOV_KEYS.filter(
+            (g) => key.includes(g.key) || g.key.includes(key),
+        );
+        if (partial.length === 1) return partial[0].name;
+    }
+
+    return raw;
+}
+
 // ─── تحويل yyyy-mm-dd → dd/mm/yyyy للعرض ─────────────────────────────────────
 function toDisplay(iso: string) {
     if (!iso) return "";
@@ -578,8 +659,10 @@ function DateField({
                     onChange={(e) => onChange(e.target.value)}
                     className={
                         inputCls +
+                        empty(value) +
                         " text-transparent dark:text-transparent caret-transparent cursor-pointer [&::-webkit-datetime-edit]:text-transparent [&::-webkit-calendar-picker-indicator]:opacity-100"
                     }
+                    style={emptyStyle(value)}
                     dir="ltr"
                 />
                 <span className="absolute inset-y-0 left-4 flex items-center text-sm font-bold text-zinc-900 dark:text-zinc-100 pointer-events-none select-none">
@@ -598,6 +681,30 @@ function DateField({
 
 const inputCls =
     "w-full px-4 py-2.5 bg-white dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700 focus:border-emerald-500 dark:focus:border-emerald-400 rounded-xl text-sm font-bold text-zinc-900 dark:text-zinc-100 focus:outline-none transition-colors placeholder:text-zinc-300 dark:placeholder:text-zinc-600 focus:ring-2 focus:ring-emerald-500/10 dark:focus:ring-emerald-400/10";
+
+// ─── لو القيمة فاضية الحقل يبقى أحمر ─────────────────────────────────────────
+// بنستخدم كلاس عادي (is-empty) وستايله مكتوب CSS صريح تحت، عشان ميعتمدش على إعدادات Tailwind
+const empty = (v: unknown) =>
+    v === null || v === undefined || (typeof v === "string" && v.trim() === "")
+        ? " is-empty"
+        : "";
+
+// ستايل مباشر على الحقل (inline) — أقوى من أي كلاس ومش بيعتمد على الـ build
+const emptyStyle = (v: unknown): React.CSSProperties =>
+    v === null || v === undefined || (typeof v === "string" && v.trim() === "")
+        ? {
+              borderColor: "#ef4444",
+              backgroundColor: "#fef2f2",
+              boxShadow: "0 0 0 1px #fecaca",
+          }
+        : {};
+
+const emptyCss = `
+.is-empty { border-color: #f87171 !important; background-color: #fef2f2 !important; }
+.is-empty:focus { border-color: #ef4444 !important; box-shadow: 0 0 0 3px rgba(239,68,68,.2) !important; }
+.dark .is-empty { background-color: rgba(127,29,29,.2) !important; border-color: #ef4444 !important; }
+`;
+
 // ─── الصفحة الرئيسية ──────────────────────────────────────────────────────────
 export default function Edit({
     customer,
@@ -618,7 +725,7 @@ export default function Edit({
         marital_status: customer.marital_status || "",
         phone: customer.phone || "",
         whatsapp: customer.whatsapp || "",
-        governorate: customer.governorate || "",
+        governorate: matchGovernorate(customer.governorate),
         address: customer.address || "",
         passport_number: customer.passport_number || "",
         passport_issue_date: customer.passport_issue_date
@@ -703,7 +810,8 @@ export default function Edit({
                 passport_issue_place:
                     d.passport_issue_place || prev.passport_issue_place,
                 address: d.address || prev.address,
-                governorate: d.governorate || prev.governorate,
+                governorate:
+                    matchGovernorate(d.governorate) || prev.governorate,
                 national_id: d.national_id || prev.national_id,
                 mrz: d.mrz || prev.mrz,
             }));
@@ -723,6 +831,7 @@ export default function Edit({
     return (
         <>
             <Head title={`تعديل بيانات - ${customer.name_ar}`} />
+            <style>{emptyCss}</style>
 
             <div className="max-w-7xl mx-auto pb-16 px-4" dir="rtl">
                 {/* ── الهيدر ── */}
@@ -780,7 +889,11 @@ export default function Edit({
                                                         e.target.value,
                                                     )
                                                 }
-                                                className={inputCls}
+                                                className={
+                                                    inputCls +
+                                                    empty(data.name_ar)
+                                                }
+                                                style={emptyStyle(data.name_ar)}
                                                 placeholder="الاسم الرباعي كما في المستندات..."
                                             />
                                         </Field>
@@ -799,8 +912,11 @@ export default function Edit({
                                                     )
                                                 }
                                                 className={
-                                                    inputCls + " text-left"
+                                                    inputCls +
+                                                    " text-left" +
+                                                    empty(data.name_en)
                                                 }
+                                                style={emptyStyle(data.name_en)}
                                                 dir="ltr"
                                                 placeholder="Full name as in passport..."
                                             />
@@ -819,8 +935,11 @@ export default function Edit({
                                                     )
                                                 }
                                                 className={
-                                                    inputCls + " text-center"
+                                                    inputCls +
+                                                    " text-center" +
+                                                    empty(data.gender)
                                                 }
+                                                style={emptyStyle(data.gender)}
                                             >
                                                 <option value="">
                                                     اختر الجنس
@@ -852,7 +971,13 @@ export default function Edit({
                                                         e.target.value,
                                                     )
                                                 }
-                                                className={inputCls}
+                                                className={
+                                                    inputCls +
+                                                    empty(data.nationality)
+                                                }
+                                                style={emptyStyle(
+                                                    data.nationality,
+                                                )}
                                                 placeholder="مثال: مصري، يمني..."
                                             />
                                         </Field>
@@ -867,8 +992,13 @@ export default function Edit({
                                                     )
                                                 }
                                                 className={
-                                                    inputCls + " text-center"
+                                                    inputCls +
+                                                    " text-center" +
+                                                    empty(data.marital_status)
                                                 }
+                                                style={emptyStyle(
+                                                    data.marital_status,
+                                                )}
                                             >
                                                 <option value="">
                                                     اختر الحالة
@@ -912,8 +1042,11 @@ export default function Edit({
                                                     )
                                                 }
                                                 className={
-                                                    inputCls + " text-left"
+                                                    inputCls +
+                                                    " text-left" +
+                                                    empty(data.phone)
                                                 }
+                                                style={emptyStyle(data.phone)}
                                                 dir="ltr"
                                                 placeholder="05xxxxxxxx"
                                             />
@@ -933,16 +1066,20 @@ export default function Edit({
                                                     )
                                                 }
                                                 className={
-                                                    inputCls + " text-left"
+                                                    inputCls +
+                                                    " text-left" +
+                                                    empty(data.whatsapp)
                                                 }
+                                                style={emptyStyle(
+                                                    data.whatsapp,
+                                                )}
                                                 dir="ltr"
                                                 placeholder="05xxxxxxxx"
                                             />
                                         </Field>
 
                                         <Field label="المحافظة">
-                                            <input
-                                                type="text"
+                                            <select
                                                 value={data.governorate}
                                                 onChange={(e) =>
                                                     setData(
@@ -950,9 +1087,37 @@ export default function Edit({
                                                         e.target.value,
                                                     )
                                                 }
-                                                className={inputCls}
-                                                placeholder="المحافظة الحالية..."
-                                            />
+                                                className={
+                                                    inputCls +
+                                                    " text-center" +
+                                                    empty(data.governorate)
+                                                }
+                                                style={emptyStyle(
+                                                    data.governorate,
+                                                )}
+                                            >
+                                                <option value="">
+                                                    اختر المحافظة
+                                                </option>
+                                                {/* لو القيمة الحالية (مثلاً من استخراج الجواز) مش في القائمة نعرضها برضه */}
+                                                {data.governorate &&
+                                                    !GOVERNORATES.includes(
+                                                        data.governorate,
+                                                    ) && (
+                                                        <option
+                                                            value={
+                                                                data.governorate
+                                                            }
+                                                        >
+                                                            {data.governorate}
+                                                        </option>
+                                                    )}
+                                                {GOVERNORATES.map((g) => (
+                                                    <option key={g} value={g}>
+                                                        {g}
+                                                    </option>
+                                                ))}
+                                            </select>
                                         </Field>
                                         <Field
                                             label="المندوب المسؤول"
@@ -967,8 +1132,13 @@ export default function Edit({
                                                     )
                                                 }
                                                 className={
-                                                    inputCls + " text-center"
+                                                    inputCls +
+                                                    " text-center" +
+                                                    empty(data.delegate_id)
                                                 }
+                                                style={emptyStyle(
+                                                    data.delegate_id,
+                                                )}
                                             >
                                                 <option value="">
                                                     -- بدون مندوب --
@@ -997,7 +1167,11 @@ export default function Edit({
                                                         e.target.value,
                                                     )
                                                 }
-                                                className={inputCls}
+                                                className={
+                                                    inputCls +
+                                                    empty(data.address)
+                                                }
+                                                style={emptyStyle(data.address)}
                                                 placeholder="المدينة، الشارع..."
                                             />
                                         </Field>
@@ -1207,8 +1381,12 @@ export default function Edit({
                                                 }
                                                 className={
                                                     inputCls +
-                                                    " text-left uppercase tracking-widest font-mono"
+                                                    " text-left uppercase tracking-widest font-mono" +
+                                                    empty(data.passport_number)
                                                 }
+                                                style={emptyStyle(
+                                                    data.passport_number,
+                                                )}
                                                 dir="ltr"
                                                 placeholder="N00000000"
                                             />
@@ -1249,7 +1427,15 @@ export default function Edit({
                                                         e.target.value,
                                                     )
                                                 }
-                                                className={inputCls}
+                                                className={
+                                                    inputCls +
+                                                    empty(
+                                                        data.passport_issue_place,
+                                                    )
+                                                }
+                                                style={emptyStyle(
+                                                    data.passport_issue_place,
+                                                )}
                                                 placeholder="القاهرة..."
                                             />
                                         </Field>
@@ -1269,8 +1455,12 @@ export default function Edit({
                                                 }
                                                 className={
                                                     inputCls +
-                                                    " text-left tracking-widest font-mono"
+                                                    " text-left tracking-widest font-mono" +
+                                                    empty(data.national_id)
                                                 }
+                                                style={emptyStyle(
+                                                    data.national_id,
+                                                )}
                                                 dir="ltr"
                                             />
                                         </Field>
@@ -1290,8 +1480,10 @@ export default function Edit({
                                                 }
                                                 className={
                                                     inputCls +
-                                                    " font-mono tracking-widest text-left resize-none"
+                                                    " font-mono tracking-widest text-left resize-none" +
+                                                    empty(data.mrz)
                                                 }
+                                                style={emptyStyle(data.mrz)}
                                                 dir="ltr"
                                                 placeholder="P<YEM<<..."
                                             />
@@ -1316,8 +1508,12 @@ export default function Edit({
                                                 }
                                                 className={
                                                     inputCls +
-                                                    " text-left font-mono"
+                                                    " text-left font-mono" +
+                                                    empty(data.visa_number)
                                                 }
+                                                style={emptyStyle(
+                                                    data.visa_number,
+                                                )}
                                                 dir="ltr"
                                             />
                                         </Field>
@@ -1482,7 +1678,12 @@ export default function Edit({
                                         onChange={(e) =>
                                             setData("notes", e.target.value)
                                         }
-                                        className={inputCls + " resize-none"}
+                                        className={
+                                            inputCls +
+                                            " resize-none" +
+                                            empty(data.notes)
+                                        }
+                                        style={emptyStyle(data.notes)}
                                         placeholder="اكتب أي ملاحظات أو شروط خاصة بالعميل هنا..."
                                     />
                                 </Field>

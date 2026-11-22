@@ -18,6 +18,8 @@ class EntryController extends Controller
             ->whereDate('created_at', today())
             ->latest()
             ->get();
+
+        // return $entries;
         // $customers = Customer::all();
         $treasuries = Treasury::all();
         $paymentMethods = PaymentMethod::all();
@@ -33,19 +35,27 @@ class EntryController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'customer_id' => 'required|exists:customers,id',
-            'treasury_id' => 'required|exists:treasuries,id',
+            'customer_id'       => 'required|exists:customers,id',
+            'treasury_id'       => 'required|exists:treasuries,id',
             'payment_method_id' => 'required|exists:payment_methods,id',
-            'debit' => 'required|numeric|min:0',
-            'credit' => 'required|numeric|min:0',
-            'description' => 'nullable|string|max:500',
+            'debit'             => 'required|numeric|min:0',
+            'credit'            => 'required|numeric|min:0',
+            'description'       => 'nullable|string|max:500',
+            'receipt'           => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf|max:5120', // بحد أقصى 5 ميجا
         ], [
-            'customer_id.required' => 'يرجى اختيار العميل',
-            'treasury_id.required' => 'يرجى اختيار الخزنة',
+            'customer_id.required'       => 'يرجى اختيار العميل',
+            'treasury_id.required'       => 'يرجى اختيار الخزنة',
             'payment_method_id.required' => 'يرجى اختيار طريقة الاستلام',
-            'debit.required' => 'حقل المدين مطلوب',
-            'credit.required' => 'حقل الدائن مطلوب',
+            'debit.required'             => 'حقل المدين مطلوب',
+            'credit.required'            => 'حقل الدائن مطلوب',
+            'receipt.mimes'              => 'يجب أن يكون الريسيت صورة (jpg, png, webp) أو ملف PDF',
+            'receipt.max'                => 'حجم ملف الريسيت يجب ألا يتجاوز 5 ميجابايت',
         ]);
+
+        // في حالة رفع ملف ريسيت
+        if ($request->hasFile('receipt')) {
+            $validated['receipt'] = $request->file('receipt')->store('receipts', 'public');
+        }
 
         Entry::create($validated);
 

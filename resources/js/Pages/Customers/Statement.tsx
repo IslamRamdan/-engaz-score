@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
 import { Link } from "@inertiajs/react";
 import AppLayout from "@/Layouts/AppLayout";
+import { ReceiptButton } from "@/Components/ReceiptUpload";
 import {
     ArrowRight,
     Wallet,
@@ -30,6 +31,8 @@ interface Entry {
     debit: number | string;
     credit: number | string;
     description?: string;
+    receipt?: string | null;
+    receipt_url?: string | null;
     created_at: string;
 }
 
@@ -76,6 +79,11 @@ const fmtDate = (d: string) =>
 const byDateAsc = <T extends { created_at: string; id: number }>(a: T, b: T) =>
     new Date(a.created_at).getTime() - new Date(b.created_at).getTime() ||
     a.id - b.id;
+
+// يبني رابط الإيصال: receipt_url لو راجع من الباك إند، وإلا من مسار الملف المحفوظ
+const receiptSrc = (entry: Entry): string | null =>
+    entry.receipt_url ||
+    (entry.receipt ? `/storage/${entry.receipt.replace(/^\/+/, "")}` : null);
 
 function StatCard({
     label,
@@ -466,6 +474,9 @@ export default function CustomerStatement({ customer }: StatementProps) {
                                             <th className="px-5 py-3 font-medium">
                                                 الوصف / البيان
                                             </th>
+                                            <th className="px-3 py-3 font-medium print:hidden">
+                                                الإيصال
+                                            </th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-100 dark:divide-neutral-800">
@@ -511,6 +522,12 @@ export default function CustomerStatement({ customer }: StatementProps) {
                                                 <td className="px-5 py-3.5 text-xs text-gray-600 dark:text-neutral-300">
                                                     {entry.description || "—"}
                                                 </td>
+                                                <td className="px-3 py-3.5 print:hidden">
+                                                    <ReceiptButton
+                                                        src={receiptSrc(entry)}
+                                                        title={`إيصال ${customerName}`}
+                                                    />
+                                                </td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -534,6 +551,7 @@ export default function CustomerStatement({ customer }: StatementProps) {
                                                 {fmt(remaining)}
                                             </td>
                                             <td />
+                                            <td className="print:hidden" />
                                         </tr>
                                     </tfoot>
                                 </table>
