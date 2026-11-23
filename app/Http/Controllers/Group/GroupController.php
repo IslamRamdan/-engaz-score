@@ -7,6 +7,7 @@ use App\Models\Bag;
 use App\Models\Group;
 use App\Models\Visa;
 use App\Models\Customer;
+use App\Models\Entry;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -167,10 +168,63 @@ class GroupController extends Controller
 
         return redirect()->back()->with('success', 'تم إضافة العملاء بنجاح.');
     }
+    // public function show($id)
+    // {
+    //     $group = Group::with(['customers', 'visa'])
+    //         ->where('company_id', auth()->user()->company_id)
+    //         ->findOrFail($id);
+
+    //     $visa = $group->visa;
+    //     $sponsor = $visa ? $visa->sponsor : null;
+    //     $sponsorName = $sponsor ? $sponsor->name : "غير متوفر";
+    //     $id_number = $sponsor ? $sponsor->id_number : "غير متوفر";
+    //     $issue_number = $visa ? $visa->issue_number : "غير متوفر";
+
+
+    //     $allJobs = json_decode(file_get_contents(public_path('jops.json')), true);
+
+    //     // 2. البحث عن اسم الوظيفة بناءً على الكود المخزن في notes
+    //     $jobCode = $group->notes; // الكود الموجود في قاعدة البيانات
+    //     $jobName = null;
+
+    //     foreach ($allJobs as $job) {
+    //         if ($job['Value'] == $jobCode) {
+    //             $jobName = $job['Text'];
+    //             break;
+    //         }
+    //     }
+
+    //     return Inertia::render('Groups/Show', [
+    //         'group' => $group,
+    //         'customers' => $group->customers,
+    //         'sponsorName' => $sponsorName,
+    //         'issue_number' => $issue_number,
+    //         'id_number' => $id_number,
+    //         'job' => $jobName,
+    //         'bags' => Bag::select('id', 'name')->get(), // جلب كل الحقائب المتاحة
+    //         "user" => auth()->user(),
+    //         "visa" => $visa,
+    //         "sponsor" => $sponsor,
+    //     ]);
+    // }
+
     public function show($id)
     {
-        $group = Group::with(['customers', 'visa'])
-            ->where('company_id', auth()->user()->company_id)
+        $companyId = auth()->user()->company_id;
+
+        $group = Group::with([
+            'visa',
+            'customers' => function ($query) {
+                $query->withSum('entries as total_credit', 'credit')
+                    ->withSum('entries as total_debit', 'debit')
+                    ->selectSub(
+                        Entry::selectRaw('  COALESCE(SUM(debit), 0) - COALESCE(SUM(credit), 0)')
+                            ->whereColumn('entries.customer_id', 'customers.id'),
+                        'balance'
+                    );
+            },
+        ])
+            ->where('company_id', $companyId)
             ->findOrFail($id);
 
         $visa = $group->visa;
@@ -179,11 +233,10 @@ class GroupController extends Controller
         $id_number = $sponsor ? $sponsor->id_number : "غير متوفر";
         $issue_number = $visa ? $visa->issue_number : "غير متوفر";
 
-
         $allJobs = json_decode(file_get_contents(public_path('jops.json')), true);
 
         // 2. البحث عن اسم الوظيفة بناءً على الكود المخزن في notes
-        $jobCode = $group->notes; // الكود الموجود في قاعدة البيانات
+        $jobCode = $group->notes;
         $jobName = null;
 
         foreach ($allJobs as $job) {
@@ -193,8 +246,6 @@ class GroupController extends Controller
             }
         }
 
-        // return $group->customers;
-
         return Inertia::render('Groups/Show', [
             'group' => $group,
             'customers' => $group->customers,
@@ -202,12 +253,13 @@ class GroupController extends Controller
             'issue_number' => $issue_number,
             'id_number' => $id_number,
             'job' => $jobName,
-            'bags' => Bag::select('id', 'name')->get(), // جلب كل الحقائب المتاحة
-            "user" => auth()->user(),
-            "visa" => $visa,
-            "sponsor" => $sponsor,
+            'bags' => Bag::select('id', 'name')->get(),
+            'user' => auth()->user(),
+            'visa' => $visa,
+            'sponsor' => $sponsor,
         ]);
     }
+
     public function removeCustomers(Request $request, Group $group)
     {
         $validated = $request->validate([

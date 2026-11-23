@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Customer;
 use App\Models\Delegate;
 use App\Models\Due;
+use App\Models\Entry;
 use App\Models\Group;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -758,14 +759,23 @@ PROMPT;
     {
         $companyId = auth()->user()->company_id;
 
-        $customers = Customer::query()->with(['latestDelegate', 'groups'])
+        $customers = Customer::query()
+            ->with(['latestDelegate', 'groups'])
+            ->withSum('entries as total_credit', 'credit')
+            ->withSum('entries as total_debit', 'debit')
+            ->selectSub(
+                Entry::selectRaw(' COALESCE(SUM(debit), 0)- COALESCE(SUM(credit), 0)')
+                    ->whereColumn('entries.customer_id', 'customers.id'),
+                'balance'
+            )
             ->where('company_id', $companyId)
             ->where('status', 'test')
             ->latest()
             ->paginate(15)
             ->withQueryString();
-        $groups = Group::where('company_id', auth()->user()->company_id)->get();
 
+
+        $groups = Group::where('company_id', $companyId)->get();
 
         return Inertia::render('Customers/TestCustomers', [
             'customers' => $customers,

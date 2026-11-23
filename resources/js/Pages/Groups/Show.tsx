@@ -77,6 +77,10 @@ type Customer = {
     national_id: string | null;
     passport_issue_place: string | null;
     marital_status: string | null;
+    // ===== الحسابات (قادمة من الـ backend) =====
+    balance?: number | string | null;
+    total_debit?: number | string | null;
+    total_credit?: number | string | null;
 };
 
 type Group = {
@@ -134,6 +138,7 @@ type SortField =
     | "medical_status"
     | "lab_status"
     | "enet_status"
+    | "balance"
     | null;
 
 export default function Show({
@@ -315,6 +320,15 @@ export default function Show({
             age--;
         }
         return age;
+    };
+
+    // تنسيق الرصيد
+    const formatBalance = (value: number | string | null | undefined) => {
+        const num = Number(value ?? 0);
+        return num.toLocaleString("en-US", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        });
     };
 
     const handleExportSelected = () => {
@@ -1220,6 +1234,10 @@ export default function Show({
                 valA = a.pivot?.enet_status || "";
                 valB = b.pivot?.enet_status || "";
                 break;
+            case "balance":
+                valA = Number(a.balance ?? 0);
+                valB = Number(b.balance ?? 0);
+                break;
         }
 
         if (typeof valA === "number" && typeof valB === "number") {
@@ -1475,6 +1493,13 @@ export default function Show({
                                         <SortableHeader
                                             field="enet_status"
                                             label="إنجاز"
+                                            align="center"
+                                        />
+                                    </th>
+                                    <th className="p-4 text-center">
+                                        <SortableHeader
+                                            field="balance"
+                                            label="الرصيد"
                                             align="center"
                                         />
                                     </th>
@@ -1745,6 +1770,51 @@ export default function Show({
                                                             —
                                                         </span>
                                                     )}
+                                                </td>
+
+                                                {/* الرصيد */}
+                                                <td className="p-4 text-center whitespace-nowrap">
+                                                    {(() => {
+                                                        const balance = Number(
+                                                            c.balance ?? 0,
+                                                        );
+
+                                                        const isCredit =
+                                                            balance > 0; // دائن (له)
+                                                        const isDebit =
+                                                            balance < 0; // مدين (عليه)
+
+                                                        const colorClass =
+                                                            isCredit
+                                                                ? "text-emerald-600 dark:text-emerald-400"
+                                                                : isDebit
+                                                                  ? "text-red-600 dark:text-red-400"
+                                                                  : "text-zinc-400 dark:text-zinc-500";
+
+                                                        const label = isCredit
+                                                            ? "له"
+                                                            : isDebit
+                                                              ? "عليه"
+                                                              : "مسدد";
+
+                                                        return (
+                                                            <div>
+                                                                <p
+                                                                    className={`font-mono font-black text-sm ${colorClass}`}
+                                                                    dir="ltr"
+                                                                >
+                                                                    {formatBalance(
+                                                                        Math.abs(
+                                                                            balance,
+                                                                        ),
+                                                                    )}
+                                                                </p>
+                                                                <p className="text-[10px] text-zinc-400 dark:text-zinc-500">
+                                                                    {label}
+                                                                </p>
+                                                            </div>
+                                                        );
+                                                    })()}
                                                 </td>
 
                                                 {/* العمليات */}
@@ -2106,7 +2176,7 @@ export default function Show({
                                 ) : (
                                     <tr>
                                         <td
-                                            colSpan={9}
+                                            colSpan={10}
                                             className="p-12 text-center text-zinc-400 dark:text-zinc-500"
                                         >
                                             <div className="flex flex-col items-center justify-center gap-2">

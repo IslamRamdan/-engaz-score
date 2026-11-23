@@ -31,6 +31,7 @@ interface Customer {
     latest_delegate?: { id: number; name: string }[] | null;
     created_at: string;
     groups?: Group[];
+    balance?: number | string | null; // الرصيد = إجمالي الدائن - إجمالي المدين (من selectSub في الـ Controller)
 }
 
 interface Group {
@@ -63,6 +64,26 @@ function formatDate(iso: string) {
     const mm = String(d.getMonth() + 1).padStart(2, "0");
     const yyyy = d.getFullYear();
     return `${dd}/${mm}/${yyyy}`;
+}
+
+// ── مساعد تنسيق المبلغ ─────────────────────────────────────────────────────
+// withSum بيرجع غالباً string (أو null لو مفيش قيود) فبنحوله لرقم الأول
+function formatMoney(value: number | string | null | undefined) {
+    const n = Number(value ?? 0);
+    return n.toLocaleString("en-US", {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2,
+    });
+}
+
+// ── لون الرصيد: موجب أخضر / سالب أحمر / صفر رمادي ──────────────────────────
+function balanceStyle(value: number | string | null | undefined) {
+    const n = Number(value ?? 0);
+    if (n > 0)
+        return "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border-emerald-100 dark:border-emerald-800/50";
+    if (n < 0)
+        return "bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border-red-100 dark:border-red-800/50";
+    return "bg-zinc-50 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 border-zinc-200 dark:border-zinc-700";
 }
 
 // ── مكوّن بادج المندوب ───────────────────────────────────────────────────────
@@ -274,6 +295,7 @@ export default function Index({
                                     <th className="p-4 text-center">
                                         المجموعات
                                     </th>
+                                    <th className="p-4 text-center">الرصيد</th>
                                     <th className="p-4 text-center">
                                         تاريخ التسجيل
                                     </th>
@@ -446,6 +468,20 @@ export default function Index({
                                                 )}
                                             </td>
 
+                                            {/* الرصيد */}
+                                            <td className="p-4 whitespace-nowrap text-center">
+                                                <span
+                                                    className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-black border ${balanceStyle(
+                                                        customer.balance,
+                                                    )}`}
+                                                    dir="ltr"
+                                                >
+                                                    {formatMoney(
+                                                        customer.balance,
+                                                    )}
+                                                </span>
+                                            </td>
+
                                             {/* التاريخ */}
                                             <td className="p-4 whitespace-nowrap">
                                                 <div className="flex items-center gap-1.5 justify-center">
@@ -488,7 +524,7 @@ export default function Index({
                                 ) : (
                                     <tr>
                                         <td
-                                            colSpan={7}
+                                            colSpan={9}
                                             className="p-16 text-center"
                                         >
                                             <div className="flex flex-col items-center gap-4">
