@@ -19,11 +19,9 @@ import {
     UserCog,
     FileText,
     Plane,
-    Stethoscope,
-    FlaskConical,
-    Wifi,
     Scissors,
     Loader2,
+    ScanText,
 } from "lucide-react";
 
 interface Due {
@@ -818,6 +816,38 @@ export default function Edit({
         } catch (err) {
             setExtractError("حدث خطأ أثناء الاتصال بخدمة الاستخراج");
         } finally {
+            setExtracting(false);
+        }
+    };
+
+    // ─── استخراج البيانات من الجواز الموجود بالفعل على السيرفر (بدون رفع) ───
+    const extractFromExistingPassport = async () => {
+        if (!customer.passport_image) return;
+        setExtracting(true);
+        setExtractError(null);
+
+        try {
+            const imgRes = await fetch(`/storage/${customer.passport_image}`);
+            if (!imgRes.ok) throw new Error("تعذر تحميل صورة الجواز الحالية");
+
+            const blob = await imgRes.blob();
+
+            if (!blob.type.startsWith("image/")) {
+                setExtractError(
+                    "ملف الجواز الحالي ليس صورة (مثلاً PDF) ولا يمكن استخراجه",
+                );
+                setExtracting(false);
+                return;
+            }
+
+            const fileName =
+                customer.passport_image.split("/").pop() || "passport.jpg";
+            const file = new File([blob], fileName, { type: blob.type });
+
+            // نستخدم نفس دالة الاستخراج الأصلية (بتعمل setExtracting(false) في الـ finally)
+            await extractPassportData(file);
+        } catch (err) {
+            setExtractError("فشل تحميل صورة الجواز الحالية");
             setExtracting(false);
         }
     };
@@ -1730,6 +1760,27 @@ export default function Edit({
                                         error={errors.passport_image}
                                         icon={FileImage}
                                     />
+
+                                    {/* زرار استخراج البيانات من الجواز الموجود (من غير رفع) */}
+                                    {customer.passport_image &&
+                                        !data.passport_image && (
+                                            <button
+                                                type="button"
+                                                onClick={
+                                                    extractFromExistingPassport
+                                                }
+                                                disabled={extracting}
+                                                className="w-full inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-xs font-black text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 border border-emerald-100 dark:border-emerald-800 transition-colors disabled:opacity-50 cursor-pointer"
+                                            >
+                                                {extracting ? (
+                                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                                ) : (
+                                                    <ScanText className="w-3.5 h-3.5" />
+                                                )}
+                                                استخراج البيانات من الجواز
+                                                الحالي
+                                            </button>
+                                        )}
 
                                     {/* حالة استخراج بيانات الجواز */}
                                     {extracting && (

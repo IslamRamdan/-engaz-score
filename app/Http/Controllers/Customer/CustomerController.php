@@ -444,6 +444,89 @@ class CustomerController extends Controller
         ]);
     }
 
+    //     public function extractPassport(Request $request)
+    //     {
+    //         $request->validate([
+    //             'passport_image' => 'required|image', // 8MB
+    //         ]);
+
+    //         $file = $request->file('passport_image');
+    //         $base64Image = base64_encode(file_get_contents($file->getRealPath()));
+    //         $mimeType = $file->getMimeType();
+
+    //         $prompt = <<<PROMPT
+    // أنت أداة استخراج بيانات من صور جوازات السفر. افحص الصورة المرفقة واستخرج البيانات التالية بدقة.
+    // أعد فقط كائن JSON صالح بدون أي نص إضافي أو علامات markdown، بهذا الشكل بالضبط:
+
+    // {
+    //   "name_ar": "الاسم الكامل بالعربية إن وجد أو فارغ",
+    //   "name_en": "الاسم كما هو مكتوب بالإنكليزية في الجواز (Given Names + Surname)",
+    //   "gender": "male أو female أو فارغ",
+    //   "birth_date": "YYYY-MM-DD أو فارغ",
+    //   "nationality": "الجنسية بالعربية إن أمكن استنتاجها (مثال: يمني، مصري) أو الكود الموجود في الجواز",
+    //   "passport_number": "رقم الجواز",
+    //   "passport_issue_date": "YYYY-MM-DD أو فارغ",
+    //   "passport_expiry_date": "YYYY-MM-DD أو فارغ",
+    //   "passport_issue_place": "جهة الإصدار إن وجدت أو فارغ",
+    //   "address": "العنوان باللغة العربية إن أمكن استنتاجه أو فارغ لو غير موجودة حط مكان الميلاد",
+    //   "governorate": "باللغة العربية إن أمكن استنتاجها أو فارغ او مكان الميلاد",
+    //   "national_id": "الرقم القومي انجليزي إن وجد أو فارغ",
+    //   "mrz": "سطرا الـ MRZ كاملين كما هما مطبوعين، مفصولين بـ \\n"
+    // }
+
+    // إذا كان أي حقل غير واضح أو غير موجود في الصورة، اجعل قيمته سلسلة نصية فارغة "".
+    // لا تخترع بيانات غير موجودة في الصورة.
+    // PROMPT;
+
+    //         try {
+    //             // جلب المفتاح بأمان عبر الكومبوننت config وليس env مباشرة
+    //             $apiKey = config('services.gemini.key');
+
+    //             $response = Http::timeout(30)->post(
+    //                 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=' . $apiKey,
+    //                 [
+    //                     'contents' => [[
+    //                         'parts' => [
+    //                             ['text' => $prompt],
+    //                             [
+    //                                 'inline_data' => [
+    //                                     'mime_type' => $mimeType,
+    //                                     'data' => $base64Image,
+    //                                 ],
+    //                             ],
+    //                         ],
+    //                     ]],
+    //                     'generationConfig' => [
+    //                         'temperature' => 0,
+    //                         'responseMimeType' => 'application/json', // يضمن إرجاع JSON نظيف من الموديل
+    //                     ],
+    //                 ]
+    //             );
+
+    //             if (!$response->successful()) {
+    //                 Log::error('Gemini API error', ['body' => $response->body()]);
+    //                 return response()->json(['error' => 'فشل الاتصال بخدمة الاستخراج من المزود'], 502);
+    //             }
+
+    //             $text = data_get($response->json(), 'candidates.0.content.parts.0.text', '{}');
+
+    //             // فك النص مباشرة لأن الاستجابة نقية بدون علامات ماردكاوم
+    //             $data = json_decode($text, true);
+
+    //             if (!is_array($data)) {
+    //                 Log::error('Gemini returned invalid JSON structure', ['returned_text' => $text]);
+    //                 return response()->json(['error' => 'تعذر تحليل وتنسيق بيانات الجواز المرجوعة'], 422);
+    //             }
+
+    //             // JSON_UNESCAPED_UNICODE تمنع تحول اللغة العربية لرموز مشفرة مثل \u0627\u0644
+    //             return response()->json(['data' => $data], 200, [], JSON_UNESCAPED_UNICODE);
+    //         } catch (\Throwable $e) {
+    //             Log::error('Passport extraction failed', ['message' => $e->getMessage()]);
+    //             return response()->json(['error' => 'حدث خطأ غير متوقع أثناء استخراج البيانات'], 500);
+    //         }
+    //     }
+
+
     public function extractPassport(Request $request)
     {
         $request->validate([
@@ -453,6 +536,20 @@ class CustomerController extends Controller
         $file = $request->file('passport_image');
         $base64Image = base64_encode(file_get_contents($file->getRealPath()));
         $mimeType = $file->getMimeType();
+
+        $apiKey = config('services.gemini.key');
+
+        if (empty($apiKey)) {
+            Log::error('Gemini API key is missing in config/services.php');
+            return response()->json(['error' => 'إعداد مفتاح Gemini غير مكتمل على السيرفر'], 500);
+        }
+
+        // رتّب الموديلات من الأسرع/الأفضل إلى البدائل المتاحة لديك
+        $models = [
+            'gemini-3.1-flash-lite',
+            'gemini-3.5-flash-lite',
+            'gemini-2.5-flash',
+        ];
 
         $prompt = <<<PROMPT
 أنت أداة استخراج بيانات من صور جوازات السفر. افحص الصورة المرفقة واستخرج البيانات التالية بدقة.
@@ -478,39 +575,92 @@ class CustomerController extends Controller
 لا تخترع بيانات غير موجودة في الصورة.
 PROMPT;
 
-        try {
-            // جلب المفتاح بأمان عبر الكومبوننت config وليس env مباشرة
-            $apiKey = config('services.gemini.key');
-
-            $response = Http::timeout(30)->post(
-                'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=' . $apiKey,
-                [
-                    'contents' => [[
-                        'parts' => [
-                            ['text' => $prompt],
-                            [
-                                'inline_data' => [
-                                    'mime_type' => $mimeType,
-                                    'data' => $base64Image,
-                                ],
-                            ],
+        $payload = [
+            'contents' => [[
+                'parts' => [
+                    ['text' => $prompt],
+                    [
+                        'inline_data' => [
+                            'mime_type' => $mimeType,
+                            'data' => $base64Image,
                         ],
-                    ]],
-                    'generationConfig' => [
-                        'temperature' => 0,
-                        'responseMimeType' => 'application/json', // يضمن إرجاع JSON نظيف من الموديل
                     ],
-                ]
-            );
+                ],
+            ]],
+            'generationConfig' => [
+                'temperature' => 0,
+                'responseMimeType' => 'application/json',
+            ],
+        ];
 
-            if (!$response->successful()) {
-                Log::error('Gemini API error', ['body' => $response->body()]);
-                return response()->json(['error' => 'فشل الاتصال بخدمة الاستخراج من المزود'], 502);
+        try {
+            $successfulResponse = null;
+            $lastFailedResponse = null;
+            $attemptedModels = [];
+
+            foreach ($models as $model) {
+                $attemptedModels[] = $model;
+                $url = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent";
+
+                try {
+                    $response = Http::withHeaders([
+                        'x-goog-api-key' => $apiKey,
+                        'Content-Type' => 'application/json',
+                    ])
+                        ->timeout(45)
+                        ->retry(1, 800, function ($exception) {
+                            if ($exception instanceof \Illuminate\Http\Client\RequestException) {
+                                return in_array($exception->response->status(), [429, 500, 502, 503, 504], true);
+                            }
+                            return true;
+                        })
+                        ->post($url, $payload);
+                } catch (\Throwable $modelException) {
+                    Log::warning('Gemini model request threw exception, trying next model', [
+                        'model' => $model,
+                        'message' => $modelException->getMessage(),
+                    ]);
+                    continue;
+                }
+
+                if ($response->successful()) {
+                    $successfulResponse = $response;
+                    break;
+                }
+
+                $lastFailedResponse = $response;
+
+                Log::warning('Gemini model failed, trying fallback model', [
+                    'model' => $model,
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                ]);
+
+                // إذا كان الخطأ 401 أو 403 (مشكلة مفتاح/صلاحيات) فغالباً سيؤثر على كل الموديلات
+                if (in_array($response->status(), [401, 403], true)) {
+                    break;
+                }
             }
 
-            $text = data_get($response->json(), 'candidates.0.content.parts.0.text', '{}');
+            if (!$successfulResponse) {
+                $status = $lastFailedResponse ? $lastFailedResponse->status() : 503;
 
-            // فك النص مباشرة لأن الاستجابة نقية بدون علامات ماردكاوم
+                Log::error('All Gemini models failed for passport extraction', [
+                    'attempted_models' => $attemptedModels,
+                    'last_status' => $status,
+                    'last_body' => $lastFailedResponse?->body(),
+                ]);
+
+                return response()->json([
+                    'error' => in_array($status, [401, 403], true)
+                        ? 'مفتاح API غير صالح أو يفتقر للصلاحيات المطلوبة'
+                        : 'جميع الموديلات مضغوطة مؤقتاً، يرجى المحاولة بعد قليل',
+                    'provider_status' => $status,
+                    'attempted_models' => $attemptedModels,
+                ], in_array($status, [401, 403, 429, 503], true) ? $status : 502);
+            }
+
+            $text = data_get($successfulResponse->json(), 'candidates.0.content.parts.0.text', '{}');
             $data = json_decode($text, true);
 
             if (!is_array($data)) {
@@ -518,7 +668,6 @@ PROMPT;
                 return response()->json(['error' => 'تعذر تحليل وتنسيق بيانات الجواز المرجوعة'], 422);
             }
 
-            // JSON_UNESCAPED_UNICODE تمنع تحول اللغة العربية لرموز مشفرة مثل \u0627\u0644
             return response()->json(['data' => $data], 200, [], JSON_UNESCAPED_UNICODE);
         } catch (\Throwable $e) {
             Log::error('Passport extraction failed', ['message' => $e->getMessage()]);
@@ -773,7 +922,6 @@ PROMPT;
             ->latest()
             ->paginate(15)
             ->withQueryString();
-
 
         $groups = Group::where('company_id', $companyId)->get();
 
