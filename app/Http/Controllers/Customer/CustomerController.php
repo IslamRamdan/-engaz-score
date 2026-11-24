@@ -904,23 +904,33 @@ PROMPT;
             ->get();
     }
 
-    public function testCustomers()
+    public function testCustomers(Request $request)
     {
         $companyId = auth()->user()->company_id;
+
+        $search = trim((string) $request->query('search', ''));
 
         $customers = Customer::query()
             ->with(['latestDelegate', 'groups'])
             ->withSum('entries as total_credit', 'credit')
             ->withSum('entries as total_debit', 'debit')
             ->selectSub(
-                Entry::selectRaw(' COALESCE(SUM(debit), 0)- COALESCE(SUM(credit), 0)')
+                Entry::selectRaw('COALESCE(SUM(debit), 0) - COALESCE(SUM(credit), 0)')
                     ->whereColumn('entries.customer_id', 'customers.id'),
                 'balance'
             )
             ->where('company_id', $companyId)
             ->where('status', 'test')
+            ->when($search !== '', function ($q) use ($search) {
+                $q->where(function ($q) use ($search) {
+                    $q->where('name_ar', 'like', "%{$search}%")
+                        ->orWhere('phone', 'like', "%{$search}%")
+                        ->orWhereHas('latestDelegate', fn($d) =>
+                        $d->where('name', 'like', "%{$search}%"));
+                });
+            })
             ->latest()
-            ->paginate(15)
+            ->paginate(20)
             ->withQueryString();
 
         $groups = Group::where('company_id', $companyId)->get();

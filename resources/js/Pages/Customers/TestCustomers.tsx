@@ -1,8 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import AppLayout from "@/Layouts/AppLayout";
-import { Head, Link, useForm } from "@inertiajs/react";
+import { Head, Link, useForm, router } from "@inertiajs/react";
 import {
-    UserPlus,
     User,
     Phone,
     Briefcase,
@@ -10,6 +9,7 @@ import {
     Edit3,
     Users,
     ChevronLeft,
+    ChevronRight,
     LayoutDashboard,
     Search,
     MessageCircle,
@@ -31,7 +31,7 @@ interface Customer {
     latest_delegate?: { id: number; name: string }[] | null;
     created_at: string;
     groups?: Group[];
-    balance?: number | string | null; // الرصيد = إجمالي الدائن - إجمالي المدين (من selectSub في الـ Controller)
+    balance?: number | string | null; // الرصيد من selectSub في الـ Controller
 }
 
 interface Group {
@@ -39,11 +39,28 @@ interface Group {
     name: string;
 }
 
+interface PaginationLink {
+    url: string | null;
+    label: string;
+    active: boolean;
+}
+
+interface Paginated<T> {
+    data: T[];
+    links: PaginationLink[];
+    current_page: number;
+    last_page: number;
+    from: number | null;
+    to: number | null;
+    total: number;
+}
+
 interface Props {
-    // قد يصل كمصفوفة، أو كائن Paginator يحتوي data، أو كائن Collection بمفاتيح رقمية
-    customers?: Customer[] | { data: Customer[] } | Record<string, Customer>;
+    // Paginator من Laravel (أو مصفوفة عادية كاحتياط)
+    customers?: Paginated<Customer> | Customer[] | Record<string, Customer>;
     visas?: any;
-    groups?: Group[] | { data: Group[] } | Record<string, Group>; // المجموعات القادمة من الـ Controller
+    groups?: Group[] | { data: Group[] } | Record<string, Group>;
+    filters?: { search?: string };
 }
 
 // ── مساعد تحويل أي صيغة قادمة من Laravel إلى مصفوفة ─────────────────────────
@@ -67,7 +84,6 @@ function formatDate(iso: string) {
 }
 
 // ── مساعد تنسيق المبلغ ─────────────────────────────────────────────────────
-// withSum بيرجع غالباً string (أو null لو مفيش قيود) فبنحوله لرقم الأول
 function formatMoney(value: number | string | null | undefined) {
     const n = Number(value ?? 0);
     return n.toLocaleString("en-US", {
@@ -102,15 +118,89 @@ function DelegateBadge({ name }: { name?: string | null }) {
     );
 }
 
+// ── مكوّن الباجنيشن ─────────────────────────────────────────────────────────
+function Pagination({ meta }: { meta: Paginated<unknown> }) {
+    if (!meta || meta.last_page <= 1) return null;
+
+    const goTo = (url: string | null) => {
+        if (!url) return;
+        router.get(url, {}, { preserveState: true, preserveScroll: true });
+    };
+
+    // أول لينك = السابق، آخر لينك = التالي، والباقي أرقام
+    const prev = meta.links[0];
+    const next = meta.links[meta.links.length - 1];
+    const pages = meta.links.slice(1, -1);
+
+    const btn =
+        "min-w-9 h-9 px-3 inline-flex items-center justify-center rounded-xl text-xs font-black border transition-all";
+    const idle =
+        "bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800";
+
+    return (
+        <div className="flex items-center gap-1.5 flex-wrap justify-center">
+            <button
+                type="button"
+                disabled={!prev.url}
+                onClick={() => goTo(prev.url)}
+                className={`${btn} ${idle} disabled:opacity-40 disabled:cursor-not-allowed`}
+                title="السابق"
+            >
+                <ChevronRight className="w-4 h-4" />
+            </button>
+
+            {pages.map((l, i) =>
+                l.label === "..." ? (
+                    <span key={i} className="px-1 text-zinc-400 font-black">
+                        …
+                    </span>
+                ) : (
+                    <button
+                        key={i}
+                        type="button"
+                        onClick={() => goTo(l.url)}
+                        disabled={l.active}
+                        className={`${btn} ${
+                            l.active
+                                ? "bg-emerald-600 border-emerald-600 text-white shadow-sm"
+                                : idle
+                        }`}
+                    >
+                        {l.label}
+                    </button>
+                ),
+            )}
+
+            <button
+                type="button"
+                disabled={!next.url}
+                onClick={() => goTo(next.url)}
+                className={`${btn} ${idle} disabled:opacity-40 disabled:cursor-not-allowed`}
+                title="التالي"
+            >
+                <ChevronLeft className="w-4 h-4" />
+            </button>
+        </div>
+    );
+}
+
 export default function Index({
     customers: rawCustomers,
     groups: rawGroups,
+    filters,
 }: Props) {
     // تطبيع البيانات القادمة من الخلفية لتكون مصفوفات دائماً
     const customers = toArray<Customer>(rawCustomers);
     const groups = toArray<Group>(rawGroups);
 
-    const [search, setSearch] = useState("");
+    // بيانات الباجنيشن (لو الـ Controller رجّع Paginator)
+    const meta =
+        rawCustomers && !Array.isArray(rawCustomers) && "links" in rawCustomers
+            ? (rawCustomers as Paginated<Customer>)
+            : null;
+    const total = meta?.total ?? customers.length;
+
+    const [search, setSearch] = useState(filters?.search ?? "");
     const [selectedCustomerIds, setSelectedCustomerIds] = useState<number[]>(
         [],
     );
@@ -119,7 +209,7 @@ export default function Index({
     const [selectedGroupId, setSelectedGroupId] = useState<string>("");
 
     // فورم Inertia لإرسال البيانات للخلفية
-    const { data, setData, post, processing, reset } = useForm({
+    const { setData, post, processing, reset } = useForm({
         customer_ids: [] as number[],
     });
 
@@ -130,19 +220,42 @@ export default function Index({
     } | null>(null);
     const [copied, setCopied] = useState(false);
 
-    const filtered = customers.filter(
-        (c) =>
-            c.name_ar.includes(search) ||
-            (c.phone ?? "").includes(search) ||
-            (c.latest_delegate?.[0]?.name ?? "").includes(search),
-    );
+    // ── البحث من السيرفر (debounce) ─────────────────────────────────────────
+    const isFirstRender = useRef(true);
+    useEffect(() => {
+        if (isFirstRender.current) {
+            isFirstRender.current = false;
+            return;
+        }
+        const t = setTimeout(() => {
+            router.get(
+                route("customers.index"), // غيّر اسم الراوت لو مختلف
+                { search: search || undefined },
+                { preserveState: true, preserveScroll: true, replace: true },
+            );
+        }, 400);
+        return () => clearTimeout(t);
+    }, [search]);
 
-    // إدارة تحديد العناصر
+    // الفلترة بقت على السيرفر، فالقائمة المعروضة هي نفسها بيانات الصفحة الحالية
+    const filtered = customers;
+
+    // ── إدارة تحديد العناصر ────────────────────────────────────────────────
+    const allPageSelected =
+        filtered.length > 0 &&
+        filtered.every((c) => selectedCustomerIds.includes(c.id));
+
+    // تحديد/إلغاء تحديد عملاء الصفحة الحالية فقط مع الحفاظ على تحديدات الصفحات الأخرى
     const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const pageIds = filtered.map((c) => c.id);
         if (e.target.checked) {
-            setSelectedCustomerIds(filtered.map((c) => c.id));
+            setSelectedCustomerIds((prev) =>
+                Array.from(new Set([...prev, ...pageIds])),
+            );
         } else {
-            setSelectedCustomerIds([]);
+            setSelectedCustomerIds((prev) =>
+                prev.filter((id) => !pageIds.includes(id)),
+            );
         }
     };
 
@@ -205,7 +318,7 @@ export default function Index({
                                 سجل ملفات العملاء
                             </h1>
                             <span className="px-2.5 py-0.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 text-xs font-black rounded-full border border-zinc-200 dark:border-zinc-700">
-                                {customers.length} عميل
+                                {total} عميل
                             </span>
                         </div>
                     </div>
@@ -278,11 +391,7 @@ export default function Index({
                                         <input
                                             type="checkbox"
                                             onChange={handleSelectAll}
-                                            checked={
-                                                filtered.length > 0 &&
-                                                selectedCustomerIds.length ===
-                                                    filtered.length
-                                            }
+                                            checked={allPageSelected}
                                             className="w-4 h-4 text-emerald-600 bg-zinc-100 border-zinc-300 rounded focus:ring-emerald-500 dark:focus:ring-emerald-600 dark:ring-offset-zinc-800 dark:bg-zinc-700 dark:border-zinc-600 focus:ring-2"
                                         />
                                     </th>
@@ -551,14 +660,17 @@ export default function Index({
                         </table>
                     </div>
 
-                    {/* ── فوتر الجدول ──────────────────────────────────────── */}
+                    {/* ── فوتر الجدول + الباجنيشن ───────────────────────────── */}
                     {filtered.length > 0 && (
-                        <div className="px-6 py-3 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/20 flex items-center justify-between">
+                        <div className="px-6 py-3 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/20 flex flex-col sm:flex-row items-center justify-between gap-3">
                             <p className="text-[11px] font-bold text-zinc-400 dark:text-zinc-500">
-                                {search
-                                    ? `${filtered.length} من ${customers.length} نتيجة`
+                                {meta
+                                    ? `عرض ${meta.from} إلى ${meta.to} من ${meta.total} عميل`
                                     : `إجمالي ${customers.length} عميل`}
                             </p>
+
+                            {meta && <Pagination meta={meta} />}
+
                             <p className="text-[11px] font-bold text-zinc-300 dark:text-zinc-600">
                                 آخر تحديث:{" "}
                                 {formatDate(new Date().toISOString())}
